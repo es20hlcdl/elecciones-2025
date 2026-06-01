@@ -1123,8 +1123,13 @@
     <script src="js/labels.js"></script>
     <script src="js/leaflet.photon.js"></script>
     <script src="data/recintos_1.js"></script>
+    <script src="js/app/election-constants.js"></script>
+    <script src="js/app/election-utils.js"></script>
 
     <script>
+    var ELECTION = window.ElectionConstants;
+    var ElectionUtils = window.ElectionUtils;
+
     var map = L.map('map', {
         zoomControl: false,
         maxZoom: 28,
@@ -1274,20 +1279,8 @@
         var subtitle = (feature.properties.mun || '-') + ' · ' + (feature.properties.dep || '-') + ' · Circ. ' + (feature.properties.circ || '-');
 
         var isSecondRound = (currentRound === 'segunda');
-        var parties = isSecondRound 
-            ? ['PDC', 'LIBRE'] 
-            : ['PDC', 'LIBRE', 'UNIDAD', 'AP', 'APB-SUMATE', 'MAS-IPSP', 'FP', 'LYP-ADN'];
-
-        var colorByParty = {
-            'PDC': '#0f6d72',
-            'LIBRE': '#e1524e',
-            'UNIDAD': '#f3b347',
-            'AP': '#7f64a8',
-            'APB-SUMATE': '#3e1f72',
-            'MAS-IPSP': '#2f7486',
-            'FP': '#2db7ea',
-            'LYP-ADN': '#b61f31'
-        };
+        var parties = isSecondRound ? ELECTION.SECOND_ROUND_PARTIES : ELECTION.FIRST_ROUND_PARTIES;
+        var colorByParty = ELECTION.PARTY_COLORS_HEX;
 
         var partyData = [];
         var totalPartyVotes = 0;
@@ -1449,21 +1442,7 @@
     }
 
     function getMarginOfVictory(feature) {
-        if (currentRound === 'segunda') {
-            var pdc = Number(feature.properties['svPDC']) || 0;
-            var libre = Number(feature.properties['svLIBRE']) || 0;
-            var tot = pdc + libre;
-            if (!tot) return 0;
-            return (Math.abs(pdc - libre) / tot) * 100;
-        } else {
-            var parties = ['PDC', 'LIBRE', 'UNIDAD', 'AP', 'APB-SUMATE', 'MAS-IPSP', 'FP', 'LYP-ADN'];
-            var votes = parties.map(function(p) {
-                return { party: p, count: Number(feature.properties['v_' + p]) || 0 };
-            }).sort(function(a, b) { return b.count - a.count; });
-            var tot = votes.reduce(function(sum, v) { return sum + v.count; }, 0);
-            if (!tot) return 0;
-            return ((votes[0].count - votes[1].count) / tot) * 100;
-        }
+        return ElectionUtils.getMarginOfVictory(feature, currentRound);
     }
 
     function blendColors(targetColor, ratio) {
@@ -1490,25 +1469,7 @@
 
     function style_recintos_1_0(feature) {
         var winner = getWinnerForFeature(feature);
-        var colorByParty;
-
-        if (currentRound === 'segunda') {
-            colorByParty = {
-                'PDC': '#0f6d72',
-                'LIBRE': '#e1524e'
-            };
-        } else {
-            colorByParty = {
-                'PDC': '#0f6d72',
-                'LIBRE': '#e1524e',
-                'UNIDAD': '#f3b347',
-                'AP': '#7f64a8',
-                'APB-SUMATE': '#3e1f72',
-                'MAS-IPSP': '#2f7486',
-                'FP': '#2db7ea',
-                'LYP-ADN': '#b61f31'
-            };
-        }
+        var colorByParty = ELECTION.PARTY_COLORS_HEX;
 
         var fillColorVal;
         if (currentColorMode === 'participation') {
@@ -1545,10 +1506,6 @@
     var allFeatures = json_recintos_1.features.slice();
     var layer_recintos_1;
     var currentRound = 'primera';
-    var OFFICIAL_SECOND_ROUND = {
-        PDC: 3519534,
-        LIBRE: 2884661
-    };
 
     function buildRecintosLayer(features) {
         if (layer_recintos_1) {
@@ -1606,28 +1563,15 @@
     }
 
     function getWinnerForFeature(feature) {
-        if (currentRound === 'segunda') {
-            var pdcVotes = Number(feature.properties['svPDC']) || 0;
-            var libreVotes = Number(feature.properties['svLIBRE']) || 0;
-            if (pdcVotes === libreVotes) return null;
-            return pdcVotes > libreVotes ? 'PDC' : 'LIBRE';
-        }
-        return feature.properties.g || null;
+        return ElectionUtils.getWinnerForFeature(feature, currentRound);
     }
 
     function getVotesForParty(feature, partyKey) {
-        if (currentRound === 'segunda') {
-            if (partyKey === 'PDC') return Number(feature.properties['svPDC']) || 0;
-            if (partyKey === 'LIBRE') return Number(feature.properties['svLIBRE']) || 0;
-        }
-        return Number(feature.properties['v_' + partyKey]) || 0;
+        return ElectionUtils.getVotesForParty(feature, partyKey, currentRound);
     }
 
     function getValidVotes(feature) {
-        if (currentRound === 'segunda') {
-            return Number(feature.properties['val_sv']) || 0;
-        }
-        return Number(feature.properties.val) || 0;
+        return ElectionUtils.getValidVotes(feature, currentRound);
     }
 
     function populateFilters() {
@@ -1720,21 +1664,24 @@
             ? 'RESULTADO NACIONAL - SEGUNDA VUELTA'
             : 'RESULTADO NACIONAL - PRIMERA VUELTA';
 
-        var parties = currentRound === 'segunda'
-            ? [
-                { key: 'PDC', cls: 'pdc', color: '#0f6d72' },
-                { key: 'LIBRE', cls: 'libre', color: '#e1524e' }
-            ]
-            : [
-                { key: 'PDC', cls: 'pdc', color: '#0f6d72' },
-                { key: 'LIBRE', cls: 'libre', color: '#e1524e' },
-                { key: 'UNIDAD', cls: 'unidad', color: '#f3b347' },
-                { key: 'AP', cls: 'ap', color: '#7f64a8' },
-                { key: 'APB-SUMATE', cls: 'apbs', color: '#3e1f72' },
-                { key: 'MAS-IPSP', cls: 'mas', color: '#2f7486' },
-                { key: 'FP', cls: 'fp', color: '#2db7ea' },
-                { key: 'LYP-ADN', cls: 'lyp', color: '#b61f31' }
-            ];
+        var partyKeys = currentRound === 'segunda' ? ELECTION.SECOND_ROUND_PARTIES : ELECTION.FIRST_ROUND_PARTIES;
+        var clsByParty = {
+            PDC: 'pdc',
+            LIBRE: 'libre',
+            UNIDAD: 'unidad',
+            AP: 'ap',
+            'APB-SUMATE': 'apbs',
+            'MAS-IPSP': 'mas',
+            FP: 'fp',
+            'LYP-ADN': 'lyp'
+        };
+        var parties = partyKeys.map(function(pk) {
+            return {
+                key: pk,
+                cls: clsByParty[pk] || pk.toLowerCase(),
+                color: ELECTION.PARTY_COLORS_HEX[pk]
+            };
+        });
 
         var totalValidos = features.reduce(function(sum, f) {
             return sum + getValidVotes(f);
@@ -1743,7 +1690,7 @@
         var rows = parties.map(function(p) {
             var votos;
             if (currentRound === 'segunda' && isNationalView()) {
-                votos = OFFICIAL_SECOND_ROUND[p.key] || 0;
+                votos = ELECTION.OFFICIAL_SECOND_ROUND[p.key] || 0;
             } else {
                 votos = features.reduce(function(sum, f) {
                     return sum + getVotesForParty(f, p.key);
@@ -1811,7 +1758,7 @@
         }, 0);
 
         if (currentRound === 'segunda' && isNationalView()) {
-            val = OFFICIAL_SECOND_ROUND.PDC + OFFICIAL_SECOND_ROUND.LIBRE;
+            val = ELECTION.OFFICIAL_SECOND_ROUND.PDC + ELECTION.OFFICIAL_SECOND_ROUND.LIBRE;
         }
 
         var part = hab ? ((emi / hab) * 100) : 0;
@@ -1987,7 +1934,6 @@
             ? 'RESULTADO NACIONAL - SEGUNDA VUELTA'
             : 'RESULTADO NACIONAL - PRIMERA VUELTA';
 
-        colorByBlock.classList.toggle('hidden', currentRound === 'segunda');
         secondRoundWinsBlock.classList.toggle('hidden', currentRound !== 'segunda');
         populateWinnerFilterOptions();
 
