@@ -56,6 +56,7 @@
             <div id="basemapBar" class="basemap-bar">
                 <button class="base-btn btn-reset" id="btnResetView" type="button" title="Restablecer vista nacional y filtros">
                     <i class="fas fa-home"></i>
+                    <span>Restablecer vista</span>
                 </button>
                 <span style="width: 1px; height: 16px; background: currentColor; opacity: 0.15; margin: 0 2px;"></span>
                 <button class="base-btn active" data-base="light" type="button">Claro</button>
@@ -1361,6 +1362,11 @@
 
                 var searchInput = document.getElementById('searchInput');
                 if (searchInput) searchInput.value = '';
+                var searchResults = document.getElementById('searchResults');
+                if (searchResults) {
+                    searchResults.innerHTML = '';
+                    searchResults.classList.add('hidden');
+                }
 
                 // Restore right general stats panel
                 var generalDiv = document.getElementById('sb-right-general');

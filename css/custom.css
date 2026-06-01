@@ -514,10 +514,12 @@ body {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  width: 28px;
+  gap: 6px;
+  min-height: 28px;
   height: 28px;
-  padding: 0 !important;
-  border-radius: 50% !important;
+  padding: 0 10px !important;
+  border-radius: 999px !important;
+  white-space: nowrap;
 }
 
 .dark-theme .btn-reset {
