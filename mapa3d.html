@@ -839,13 +839,14 @@
             }
 
             .sidebar {
+                position: fixed !important;
                 top: auto !important;
-                bottom: 12px !important;
+                bottom: max(12px, env(safe-area-inset-bottom)) !important;
                 left: 12px !important;
                 right: 12px !important;
                 width: calc(100% - 24px) !important;
                 height: auto !important;
-                max-height: 48vh !important;
+                max-height: min(52dvh, 420px) !important;
                 overflow-y: auto !important;
                 border-radius: 16px !important;
                 padding: 12px !important;
@@ -877,8 +878,8 @@
             }
 
             .sidebar-collapsed {
-                height: 80px !important;
-                max-height: 80px !important;
+                height: 78px !important;
+                max-height: 78px !important;
                 overflow: hidden !important;
                 padding: 6px 12px !important;
                 transform: none !important;
@@ -939,6 +940,7 @@
             .mobile-only-title {
                 display: none !important;
             }
+        }
 
         /* Desktop Floating Dashboard Card style for the right sidebar */
         @media (min-width: 768px) {
@@ -1020,14 +1022,14 @@
         /* Mobile specific bottom sheet layout */
         @media (max-width: 768px) {
             .precinct-details-panel {
-                position: absolute !important;
-                bottom: 12px !important;
+                position: fixed !important;
+                bottom: max(12px, env(safe-area-inset-bottom)) !important;
                 top: auto !important;
                 left: 12px !important;
                 right: 12px !important;
                 width: calc(100% - 24px) !important;
                 height: auto !important;
-                max-height: 48vh !important;
+                max-height: min(52dvh, 420px) !important;
                 overflow-y: auto !important;
                 border-radius: 16px !important;
                 box-shadow: 0 -8px 24px var(--glass-shadow) !important;
@@ -1049,6 +1051,32 @@
         /* Hide Mapbox/MapLibre controls globally on both desktop and mobile */
         .maplibregl-ctrl, .maplibregl-ctrl-group, .mapboxgl-ctrl, .mapboxgl-ctrl-group {
             display: none !important;
+        }
+
+        /* Ensure Deck.gl overlay canvas stretches perfectly over MapLibre GL in non-interleaved mode */
+        .maplibregl-map,
+        .mapboxgl-map {
+            position: relative !important;
+        }
+
+        .maplibregl-canvas-container,
+        .mapboxgl-canvas-container {
+            position: absolute !important;
+            inset: 0 !important;
+            z-index: 1 !important;
+        }
+
+        .deckgl-overlay,
+        .deckgl-canvas,
+        .deck-canvas {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background: transparent !important;
+            pointer-events: none !important;
+            z-index: 5 !important;
         }
     </style>
 </head>
@@ -1353,15 +1381,21 @@
         var initialPitch = isMobile ? 55 : 52; // Tilted proudly to 52 degrees to enhance cylinder perspective
         var initialBearing = isMobile ? 0 : 12; // Rotated by 12 degrees to emphasize perspective depth
 
-        var map = new maplibregl.Map({
-            container: 'map',
-            style: initialStyle,
-            center: [-63.5, -16.5], // centered on Bolivia
-            zoom: isMobile ? initialZoom : 4.8, // starts wider on desktop to fly in
-            pitch: isMobile ? initialPitch : 30, // starts flatter
-            bearing: isMobile ? initialBearing : -20, // starts rotated opposite
-            fadeDuration: isLowPerformance ? 0 : 300
-        });
+        var map = null;
+        try {
+            map = new maplibregl.Map({
+                container: 'map',
+                style: initialStyle,
+                center: [-63.5, -16.5], // centered on Bolivia
+                zoom: isMobile ? initialZoom : 4.8, // starts wider on desktop to fly in
+                pitch: isMobile ? initialPitch : 30, // starts flatter
+                bearing: isMobile ? initialBearing : -20, // starts rotated opposite
+                fadeDuration: isLowPerformance ? 0 : 300
+            });
+        } catch (mapErr) {
+            console.error("Fallo al inicializar MapLibre GL map:", mapErr);
+            alert("No se pudo iniciar el mapa interactivo. Asegúrese de que su navegador móvil tiene activado WebGL y aceleración gráfica por hardware.");
+        }
 
 
 
@@ -1709,71 +1743,566 @@
             return html;
         }
 
-        // 2. Setup Deck.gl MapboxOverlay
-        var deckOverlay = new deck.MapboxOverlay({
-            interleaved: !isMobile,
-            layers: [],
-            getTooltip: function (info) {
-                // Suppress hover floating popup on mobile/touch screens or when details panel is active
-                if (window.innerWidth <= 768 || (info && info.pointerType === 'touch') || selectedDetailObject !== null) {
-                    return null;
+        var isDeckSupported = true;
+        var deckOverlay = null;
+        var mobileDeck = null;
+        var mobileMapboxLayer = null;
+        var mobileExtrusionSignature = null;
+        var mobileExtrusionEventsBound = false;
+
+        // Shared tooltip generator function for both interleaved modes
+        function getDeckTooltip(info) {
+            // Suppress hover floating popup on mobile/touch screens or when details panel is active
+            if (window.innerWidth <= 768 || (info && info.pointerType === 'touch') || selectedDetailObject !== null) {
+                return null;
+            }
+
+            var obj = info.object;
+            if (!obj) return null;
+
+            var innerHTML = getRecintoHoverTooltipHTML(obj);
+
+            return {
+                html: innerHTML,
+                style: {
+                    backgroundColor: document.body.classList.contains('dark-theme') ? '#1c1c1c' : '#ffffff',
+                    color: document.body.classList.contains('dark-theme') ? '#e0e0e0' : '#2a2a2a',
+                    borderRadius: '14px',
+                    border: '1px solid ' + (document.body.classList.contains('dark-theme') ? '#333' : '#dedede'),
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                    padding: '0px',
+                    zIndex: '2000'
+                }
+            };
+        }
+
+        function ensureDeckCanvasOnTop() {
+            if (!isMobile) return;
+
+            var deckCanvases = document.querySelectorAll('.deckgl-canvas, .deck-canvas, canvas[class*="deck"]');
+            deckCanvases.forEach(function (canvas) {
+                canvas.style.position = 'absolute';
+                canvas.style.top = '0';
+                canvas.style.left = '0';
+                canvas.style.width = '100%';
+                canvas.style.height = '100%';
+                canvas.style.zIndex = '5';
+                canvas.style.pointerEvents = 'none';
+                canvas.style.background = 'transparent';
+
+                if (canvas.parentElement) {
+                    canvas.parentElement.style.position = 'absolute';
+                    canvas.parentElement.style.top = '0';
+                    canvas.parentElement.style.left = '0';
+                    canvas.parentElement.style.width = '100%';
+                    canvas.parentElement.style.height = '100%';
+                    canvas.parentElement.style.zIndex = '5';
+                    canvas.parentElement.style.pointerEvents = 'none';
+                }
+            });
+        }
+
+        function getDeckViewState() {
+            if (!map) return null;
+            var center = map.getCenter();
+            return {
+                longitude: center.lng,
+                latitude: center.lat,
+                zoom: map.getZoom(),
+                pitch: map.getPitch(),
+                bearing: map.getBearing()
+            };
+        }
+
+        function syncMobileDeckViewState() {
+            if (!isMobile || !mobileDeck) return;
+            var viewState = getDeckViewState();
+            if (viewState) {
+                mobileDeck.setProps({ viewState: viewState });
+                ensureDeckCanvasOnTop();
+            }
+        }
+
+        function initMobileDeckOverlay() {
+            if (!isMobile || mobileDeck) return true;
+            if (!map || !document.getElementById('map')) return false;
+
+            try {
+                mobileDeck = new deck.Deck({
+                    parent: document.getElementById('map'),
+                    views: [new deck.MapView({ repeat: true })],
+                    controller: false,
+                    viewState: getDeckViewState(),
+                    layers: [],
+                    getTooltip: getDeckTooltip,
+                    useDevicePixels: Math.min(window.devicePixelRatio || 1, 2)
+                });
+                ensureDeckCanvasOnTop();
+                console.log("Deck.gl móvil inicializado como overlay independiente");
+                return true;
+            } catch (err) {
+                console.error("Fallo al inicializar Deck.gl móvil:", err);
+                mobileDeck = null;
+                isDeckSupported = false;
+                updateMapLibreFallbackLayer();
+                return false;
+            }
+        }
+
+        function upsertMobileDeckMapLayer(layerProps) {
+            if (!isMobile || !map || !map.isStyleLoaded()) return false;
+
+            if (!deck.MapboxLayer) {
+                console.warn("deck.MapboxLayer no está disponible; usando fallback 2D.");
+                return false;
+            }
+
+            try {
+                var mapboxLayerProps = Object.assign({}, layerProps, {
+                    id: 'column-layer',
+                    type: deck.ColumnLayer
+                });
+
+                if (map.getLayer('column-layer') && mobileMapboxLayer) {
+                    mobileMapboxLayer.setProps(mapboxLayerProps);
+                } else {
+                    if (map.getLayer('column-layer')) {
+                        map.removeLayer('column-layer');
+                    }
+                    mobileMapboxLayer = new deck.MapboxLayer(mapboxLayerProps);
+                    map.addLayer(mobileMapboxLayer);
+                }
+                return true;
+            } catch (err) {
+                console.error("Fallo al montar deck.MapboxLayer móvil:", err);
+                mobileMapboxLayer = null;
+                return false;
+            }
+        }
+
+        function metersToLngLatOffset(lon, lat, radiusMeters, angle) {
+            var latRad = lat * Math.PI / 180;
+            var metersPerDegreeLat = 111320;
+            var metersPerDegreeLon = Math.max(1, 111320 * Math.cos(latRad));
+            return [
+                lon + (Math.cos(angle) * radiusMeters / metersPerDegreeLon),
+                lat + (Math.sin(angle) * radiusMeters / metersPerDegreeLat)
+            ];
+        }
+
+        function buildCirclePolygon(lon, lat, radiusMeters, sides) {
+            var ring = [];
+            for (var i = 0; i < sides; i++) {
+                var angle = (Math.PI * 2 * i) / sides;
+                ring.push(metersToLngLatOffset(lon, lat, radiusMeters, angle));
+            }
+            ring.push(ring[0]);
+            return [ring];
+        }
+
+        function colorArrayToCss(color) {
+            return 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
+        }
+
+        function removeMobileExtrusionLayer() {
+            if (!map || !map.isStyleLoaded()) return;
+            if (map.getLayer('recintos-extrusion-layer')) {
+                map.removeLayer('recintos-extrusion-layer');
+            }
+            if (map.getSource('recintos-extrusion-source')) {
+                map.removeSource('recintos-extrusion-source');
+            }
+            mobileExtrusionSignature = null;
+        }
+
+        function bindMobileExtrusionEvents() {
+            if (!map || mobileExtrusionEventsBound) return;
+
+            map.on('click', 'recintos-extrusion-layer', function (e) {
+                if (!e.features || !e.features.length) return;
+
+                var props = e.features[0].properties || {};
+                var originalFeature = allFeatures.find(function (feat) {
+                    return feat.properties.rec === props.rec &&
+                        feat.properties.mun === props.mun &&
+                        feat.properties.dep === props.dep;
+                });
+
+                if (!originalFeature) {
+                    originalFeature = allFeatures.find(function (feat) {
+                        return feat.properties.rec === props.rec && feat.properties.mun === props.mun;
+                    });
                 }
 
-                var obj = info.object;
-                if (!obj) return null;
+                if (originalFeature) {
+                    manejarClicColumna({ object: originalFeature });
+                }
+            });
 
-                var innerHTML = getRecintoHoverTooltipHTML(obj);
+            map.on('mouseenter', 'recintos-extrusion-layer', function () {
+                map.getCanvas().style.cursor = 'pointer';
+            });
 
-                return {
-                    html: innerHTML,
-                    style: {
-                        backgroundColor: document.body.classList.contains('dark-theme') ? '#1c1c1c' : '#ffffff',
-                        color: document.body.classList.contains('dark-theme') ? '#e0e0e0' : '#2a2a2a',
-                        borderRadius: '14px',
-                        border: '1px solid ' + (document.body.classList.contains('dark-theme') ? '#333' : '#dedede'),
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-                        padding: '0px',
-                        zIndex: '2000'
-                    }
-                };
-            }
-        });
+            map.on('mouseleave', 'recintos-extrusion-layer', function () {
+                map.getCanvas().style.cursor = '';
+            });
 
-        map.on('load', function () {
-            map.addControl(deckOverlay);
-            scheduleDeckLayerUpdate();
+            mobileExtrusionEventsBound = true;
+        }
 
-            if (!isMobile) {
-                if (isLowPerformance) {
-                    map.jumpTo({
-                        center: [-63.5, -16.5],
-                        zoom: initialZoom,
-                        pitch: initialPitch,
-                        bearing: initialBearing
-                    });
+        function updateMapLibreExtrusionLayer(features, activeVisualizationMode, visualScale, elevationScaleVal, hasActiveFocus, currentDepFilterVal, searchFeature) {
+            if (!map || !map.isStyleLoaded()) return false;
+
+            var isCompositionMode = activeVisualizationMode === 'composition';
+            var sourceFeatures = isCompositionMode ? getStackedSegments(features) : features;
+            var extrusionFeatures = [];
+            var sides = 10;
+            var zoom = map.getZoom();
+            var radiusMeters = zoom < 6.2 ? 560 : (zoom < 8.5 ? 210 : 95);
+            var extrusionElevationScale = zoom < 6.2 ? elevationScaleVal * 1.8 : elevationScaleVal;
+            var colorByParty = ELECTION.PARTY_COLORS_RGB;
+
+            for (var i = 0; i < sourceFeatures.length; i++) {
+                var d = sourceFeatures[i];
+                var feature = d.feature || d;
+                var lon;
+                var lat;
+                var baseVotes = 0;
+                var heightVotes;
+                var baseColor;
+
+                if (isCompositionMode) {
+                    lon = Number(d.pos[0]);
+                    lat = Number(d.pos[1]);
+                    baseVotes = Number(d.pos[2]) || 0;
+                    heightVotes = Number(d.height) || 0;
+                    baseColor = d.color || [154, 177, 181];
                 } else {
-                    // Smooth opening WebGL fly-in intro animation!
-                    setTimeout(function () {
-                        map.flyTo({
+                    lon = Number(feature.properties.lon);
+                    lat = Number(feature.properties.lat);
+                    if (isNaN(lon) || isNaN(lat)) {
+                        lon = feature.geometry.coordinates[0];
+                        lat = feature.geometry.coordinates[1];
+                    }
+                    heightVotes = getEligibleVoters(feature);
+
+                    var winner = getWinnerForFeature(feature);
+                    if (activeVisualizationMode === 'participation') {
+                        var par = ElectionUtils.getParticipation(feature, currentRound);
+                        var colStr = getParticipationColor(par);
+                        var rgb = colStr.match(/\d+/g).map(Number);
+                        baseColor = [rgb[0], rgb[1], rgb[2]];
+                    } else if (activeVisualizationMode === 'margin') {
+                        baseColor = getMarginToneColor(feature, winner, colorByParty);
+                    } else {
+                        baseColor = colorByParty[String(winner)] || [154, 177, 181];
+                    }
+                }
+
+                if (!heightVotes || isNaN(lon) || isNaN(lat)) continue;
+
+                var matchesDep = (currentDepFilterVal === 'Todos' || feature.properties.dep === currentDepFilterVal);
+                var selected = searchFeature
+                    ? (feature.properties.rec === searchFeature.properties.rec && feature.properties.mun === searchFeature.properties.mun)
+                    : matchesDep;
+                if (hasActiveFocus && !selected) {
+                    baseColor = document.body.classList.contains('dark-theme') ? [45, 45, 45] : [210, 210, 210];
+                }
+
+                var baseHeight = baseVotes * extrusionElevationScale;
+                var topHeight = (baseVotes + heightVotes) * extrusionElevationScale;
+
+                extrusionFeatures.push({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: buildCirclePolygon(lon, lat, radiusMeters, sides)
+                    },
+                    properties: {
+                        color: colorArrayToCss(baseColor),
+                        base: baseHeight,
+                        height: Math.max(topHeight, baseHeight + 1),
+                        rec: feature.properties.rec || '',
+                        mun: feature.properties.mun || '',
+                        dep: feature.properties.dep || ''
+                    }
+                });
+            }
+
+            var geojson = {
+                type: 'FeatureCollection',
+                features: extrusionFeatures
+            };
+
+            if (!map.getSource('recintos-extrusion-source')) {
+                map.addSource('recintos-extrusion-source', {
+                    type: 'geojson',
+                    data: geojson
+                });
+                map.addLayer({
+                    id: 'recintos-extrusion-layer',
+                    type: 'fill-extrusion',
+                    source: 'recintos-extrusion-source',
+                    paint: {
+                        'fill-extrusion-color': ['get', 'color'],
+                        'fill-extrusion-base': ['get', 'base'],
+                        'fill-extrusion-height': ['get', 'height'],
+                        'fill-extrusion-opacity': 0.9,
+                        'fill-extrusion-vertical-gradient': true
+                    }
+                });
+                bindMobileExtrusionEvents();
+            } else {
+                map.getSource('recintos-extrusion-source').setData(geojson);
+            }
+
+            return true;
+        }
+
+        // Setup Deck.gl overlay
+        try {
+            if (!isMobile) {
+                deckOverlay = new deck.MapboxOverlay({
+                    interleaved: true,
+                    layers: [],
+                    getTooltip: getDeckTooltip
+                });
+                console.log("Deck.gl MapboxOverlay inicializado con interleaved: true");
+            } else {
+                console.log("Móvil: columnas 3D renderizadas con extrusiones nativas de MapLibre");
+            }
+        } catch (err) {
+            console.error("Fallo en la instanciación de Deck.gl:", err);
+            isDeckSupported = false;
+        }
+
+        // Clean up the 2D MapLibre circle fallback layer when Deck.gl is active
+        function removeMapLibreFallbackLayer() {
+            if (!map || !map.isStyleLoaded()) return;
+            var sourceId = 'recintos-fallback-source';
+            var layerId = 'recintos-fallback-layer';
+            if (map.getLayer(layerId)) {
+                map.removeLayer(layerId);
+            }
+            if (map.getSource(sourceId)) {
+                map.removeSource(sourceId);
+            }
+            removeMobileExtrusionLayer();
+        }
+
+        // Lightweight 2D MapLibre circle fallback layer in case Deck.gl fails completely
+        function updateMapLibreFallbackLayer() {
+            if (!map || !map.isStyleLoaded()) return;
+
+            var sourceId = 'recintos-fallback-source';
+            var layerId = 'recintos-fallback-layer';
+            var filteredGeoJSON = {
+                type: 'FeatureCollection',
+                features: (currentFilteredFeatures && currentFilteredFeatures.length > 0) ? currentFilteredFeatures : allFeatures
+            };
+
+            if (!map.getSource(sourceId)) {
+                map.addSource(sourceId, {
+                    type: 'geojson',
+                    data: filteredGeoJSON
+                });
+
+                map.addLayer({
+                    id: layerId,
+                    type: 'circle',
+                    source: sourceId,
+                    paint: {
+                        'circle-stroke-width': 1.2,
+                        'circle-stroke-color': '#ffffff',
+                        'circle-opacity': 0.85
+                    }
+                });
+
+                // Interaction for fallback circle layer:
+                map.on('click', layerId, function (e) {
+                    if (e.features && e.features[0]) {
+                        var f = e.features[0];
+                        var originalFeature = allFeatures.find(function (feat) {
+                            return feat.properties.rec === f.properties.rec && feat.properties.mun === f.properties.mun;
+                        });
+                        if (originalFeature) {
+                            manejarClicColumna({ object: originalFeature });
+                        }
+                    }
+                });
+
+                map.on('mouseenter', layerId, function () {
+                    map.getCanvas().style.cursor = 'pointer';
+                });
+                map.on('mouseleave', layerId, function () {
+                    map.getCanvas().style.cursor = '';
+                });
+            } else {
+                map.getSource(sourceId).setData(filteredGeoJSON);
+            }
+
+            var isSecondRound = (currentRound === 'segunda');
+            var winnerProp = isSecondRound ? 'svg' : 'g';
+            var parProp = isSecondRound ? 'par_sv' : 'par';
+            var habProp = isSecondRound ? 'hab_sv' : 'hab';
+
+            var circleColor;
+            var activeMode = getActiveVisualizationMode();
+
+            if (activeMode === 'winner' || activeMode === 'composition' || activeMode === 'margin') {
+                circleColor = [
+                    'match',
+                    ['get', winnerProp],
+                    'PDC', '#0f6d72',
+                    'LIBRE', '#e1524e',
+                    'UNIDAD', '#f3b347',
+                    'AP', '#7f64a8',
+                    'APB-SUMATE', '#3e1f72',
+                    'MAS-IPSP', '#2f7486',
+                    'FP', '#2db7ea',
+                    'LYP-ADN', '#b61f31',
+                    '#9ab1b5'
+                ];
+            } else if (activeMode === 'participation') {
+                circleColor = [
+                    'interpolate',
+                    ['linear'],
+                    ['get', parProp],
+                    0, '#e1524e',
+                    65, '#e1524e',
+                    75, '#f3b347',
+                    85, '#307655',
+                    90, '#0f6d72'
+                ];
+            }
+
+            var circleRadius = [
+                'interpolate',
+                ['linear'],
+                ['get', habProp],
+                0, 4,
+                500, 6,
+                2000, 10,
+                6000, 16
+            ];
+
+            map.setPaintProperty(layerId, 'circle-color', circleColor);
+            map.setPaintProperty(layerId, 'circle-radius', circleRadius);
+        }
+
+        if (map) {
+            map.on('load', function () {
+                if (isDeckSupported && isMobile) {
+                    console.log("Móvil: MapLibre listo para montar columnas 3D nativas");
+                } else if (isDeckSupported && deckOverlay) {
+                    try {
+                        map.addControl(deckOverlay);
+                        console.log("deckOverlay añadido con éxito con interleaved:", deckOverlay.props.interleaved);
+                        ensureDeckCanvasOnTop();
+                    } catch (e) {
+                        console.warn("Fallo al añadir deckOverlay (interleaved: " + deckOverlay.props.interleaved + "). Activando recuperación compatible...", e);
+                        
+                        // On mobile, interleaved mode can black out MapLibre, so use fallback instead of retrying it.
+                        if (!deckOverlay.props.interleaved && !isMobile) {
+                            try {
+                                deckOverlay = new deck.MapboxOverlay({
+                                    interleaved: true,
+                                    layers: [],
+                                    getTooltip: getDeckTooltip
+                                });
+                                map.addControl(deckOverlay);
+                                isDeckSupported = true;
+                                console.log("-> Recuperación exitosa en carga de mapa: deckOverlay añadido con interleaved: true!");
+                                ensureDeckCanvasOnTop();
+                                removeMapLibreFallbackLayer();
+                                scheduleDeckLayerUpdate();
+                            } catch (retryErr) {
+                                console.error("Fallo crítico definitivo al añadir deckOverlay con interleaved: true:", retryErr);
+                                isDeckSupported = false;
+                                updateMapLibreFallbackLayer();
+                            }
+                        } else {
+                            isDeckSupported = false;
+                            updateMapLibreFallbackLayer();
+                        }
+                    }
+                } else {
+                    updateMapLibreFallbackLayer();
+                }
+                
+                // Force a canvas resize to perfectly align WebGL dimensions, especially on mobile:
+                map.resize();
+                syncMobileDeckViewState();
+                ensureDeckCanvasOnTop();
+                setTimeout(function () {
+                    map.resize();
+                    syncMobileDeckViewState();
+                    ensureDeckCanvasOnTop();
+                }, 150);
+                setTimeout(function () {
+                    map.resize();
+                    syncMobileDeckViewState();
+                    ensureDeckCanvasOnTop();
+                }, 600);
+
+                scheduleDeckLayerUpdate();
+
+                if (!isMobile) {
+                    if (isLowPerformance) {
+                        map.jumpTo({
                             center: [-63.5, -16.5],
                             zoom: initialZoom,
                             pitch: initialPitch,
-                            bearing: initialBearing,
-                            essential: true,
-                            duration: 2500
+                            bearing: initialBearing
                         });
-                    }, 300);
+                    } else {
+                        // Smooth opening WebGL fly-in intro animation!
+                        setTimeout(function () {
+                            map.flyTo({
+                                center: [-63.5, -16.5],
+                                zoom: initialZoom,
+                                pitch: initialPitch,
+                                bearing: initialBearing,
+                                essential: true,
+                                duration: 2500
+                            });
+                        }, 300);
+                    }
                 }
-            }
-        });
+            });
+        }
 
-        map.on('moveend', function () {
-            var hasActiveFocus = (depFilter.value !== 'Todos' || selectedSearchFeature !== null);
-            var scaleKey = getLayerScaleKey(map.getZoom(), hasActiveFocus);
-            if (scaleKey !== lastLayerScaleKey) {
-                scheduleDeckLayerUpdate();
-            }
-        });
+        if (map) {
+            map.on('move', function () {
+                syncMobileDeckViewState();
+            });
+
+            map.on('moveend', function () {
+                var hasActiveFocus = (depFilter.value !== 'Todos' || selectedSearchFeature !== null);
+                var scaleKey = getLayerScaleKey(map.getZoom(), hasActiveFocus);
+                if (scaleKey !== lastLayerScaleKey) {
+                    scheduleDeckLayerUpdate();
+                }
+                syncMobileDeckViewState();
+                if (!isDeckSupported) {
+                    updateMapLibreFallbackLayer();
+                }
+            });
+        }
+
+        if (map) {
+            map.on('style.load', function () {
+                if (isMobile && isDeckSupported) {
+                    setTimeout(scheduleDeckLayerUpdate, 80);
+                }
+            });
+
+            map.on('styledata', function () {
+                if (!isDeckSupported) {
+                    updateMapLibreFallbackLayer();
+                }
+            });
+        }
 
         // 3. Helper Functions for Filtering and Camera Animation
         function isFeatureSelected(feature) {
@@ -1916,8 +2445,16 @@
             // Adjustments specifically for mobile screens to prevent overcrowding and visual saturation:
             var isMobileDevice = (window.innerWidth <= 768);
             if (isMobileDevice) {
-                radius = radius * 0.45; // Reduce radius by 55% to prevent columns from overcrowding and overlapping
-                elevationScale = elevationScale * 0.4; // Scale down height by 60% so they do not block map details
+                if (zoom < 6.2) {
+                    radius = radius * 1.6; // Scale up at national zoom level to avoid sub-pixel columns
+                    elevationScale = elevationScale * 0.95; // Ensure columns are tall enough to stand out
+                } else if (zoom < 8.5) {
+                    radius = radius * 0.55;
+                    elevationScale = elevationScale * 0.5;
+                } else {
+                    radius = radius * 0.45;
+                    elevationScale = elevationScale * 0.4;
+                }
             }
 
             return {
@@ -2047,107 +2584,140 @@
             var currentDepFilterVal = depFilter.value;
             var searchFeature = selectedSearchFeature;
             var hasActiveFocus = (currentDepFilterVal !== 'Todos' || searchFeature !== null);
-            var visualScale = getColumnVisualScale(map.getZoom(), hasActiveFocus);
-            lastLayerScaleKey = getLayerScaleKey(map.getZoom(), hasActiveFocus);
-            var elevationScaleVal = visualScale.elevationScale;
 
             var filteredByWinner = getLayerDataForWinnerFilter();
-            var isCompositionMode = activeVisualizationMode === 'composition';
-            var layerData = isCompositionMode ? getStackedSegments(filteredByWinner) : filteredByWinner;
 
-            var columnLayer = new deck.ColumnLayer({
-                id: 'column-layer',
-                data: layerData,
-                diskResolution: isLowPerformance ? 4 : 8,
-                radius: visualScale.radius,
-                extruded: true,
-                pickable: true,
-                opacity: (window.innerWidth <= 768) ? 0.72 : 0.9,
-                elevationScale: elevationScaleVal,
-                onClick: function (info) {
-                    manejarClicColumna(info);
-                },
-                getPosition: function (d) {
-                    if (isCompositionMode) {
-                        return [d.pos[0], d.pos[1], d.pos[2] * elevationScaleVal];
-                    }
-                    var lon = Number(d.properties.lon);
-                    var lat = Number(d.properties.lat);
-                    if (isNaN(lon) || isNaN(lat)) {
-                        lon = d.geometry.coordinates[0];
-                        lat = d.geometry.coordinates[1];
-                    }
-                    return [lon, lat, 0];
-                },
-                getFillColor: function (d) {
-                    var feature = d.feature || d;
-                    
-                    // Highly optimized constant-time filter check using local variables instead of DOM queries
-                    var matchesDep = (currentDepFilterVal === 'Todos' || feature.properties.dep === currentDepFilterVal);
-                    var selected;
-                    if (searchFeature) {
-                        selected = (feature.properties.rec === searchFeature.properties.rec &&
-                                    feature.properties.mun === searchFeature.properties.mun);
-                    } else {
-                        selected = matchesDep;
-                    }
-
-                    // 1. Ghost Mode / Soft Filtering (CRITICAL CONSTRAINT!)
-                    if (hasActiveFocus && !selected) {
-                        var isDark = document.body.classList.contains('dark-theme');
-                        var fadedRgb = isDark ? [45, 45, 45] : [210, 210, 210];
-                        return [fadedRgb[0], fadedRgb[1], fadedRgb[2], 25]; // soft ghost cylinder
-                    }
-
-                    // 2. Base Color Extraction
-                    var baseColor;
-                    var winner = getWinnerForFeature(feature);
-                    var colorByParty = ELECTION.PARTY_COLORS_RGB;
-                    if (isCompositionMode) {
-                        baseColor = d.color || [154, 177, 181];
-                    } else if (activeVisualizationMode === 'winner') {
-                        baseColor = colorByParty[String(winner)] || [154, 177, 181];
-                    } else {
-                        if (activeVisualizationMode === 'participation') {
-                            var par = ElectionUtils.getParticipation(feature, currentRound);
-
-                            var colStr = getParticipationColor(par);
-                            var rgb = colStr.match(/\d+/g).map(Number);
-                            baseColor = [rgb[0], rgb[1], rgb[2]];
-                        } else if (activeVisualizationMode === 'margin') {
-                            baseColor = getMarginToneColor(feature, winner, colorByParty);
-                        } else {
-                            baseColor = colorByParty[String(winner)] || [154, 177, 181];
-                        }
-                    }
-
-                    // 3. Margin of Victory Intensity Mapping
-                    var alpha = 220;
-
-                    if (activeVisualizationMode === 'margin') {
-                        baseColor = getMarginToneColor(feature, winner, colorByParty);
-                        alpha = getMarginToneAlpha(feature);
-                    }
-
-                    return [baseColor[0], baseColor[1], baseColor[2], alpha];
-                },
-                getElevation: function (d) {
-                    if (isCompositionMode) {
-                        return d.height;
-                    }
-                    return getEligibleVoters(d);
-                },
-                updateTriggers: {
-                    // Refined triggers to avoid recalculating static attributes (only recompute when strictly necessary)
-                    getFillColor: [activeVisualizationMode, currentRound, currentDepFilterVal, searchFeature],
-                    getElevation: [activeVisualizationMode, currentRound],
-                    getPosition: [activeVisualizationMode]
+            // If Deck.gl is not supported, invoke MapLibre fallback layer directly!
+            if (!isDeckSupported) {
+                updateMapLibreFallbackLayer();
+                return;
+            } else if (isMobile) {
+                if (!map || !map.isStyleLoaded()) {
+                    setTimeout(scheduleDeckLayerUpdate, 120);
+                    return;
                 }
-            });
+            } else {
+                removeMapLibreFallbackLayer();
+            }
 
-            deckOverlay.setProps({
-                layers: [columnLayer]
-            });
+            try {
+                var visualScale = getColumnVisualScale(map.getZoom(), hasActiveFocus);
+                lastLayerScaleKey = getLayerScaleKey(map.getZoom(), hasActiveFocus);
+                var elevationScaleVal = visualScale.elevationScale;
+
+                var isCompositionMode = activeVisualizationMode === 'composition';
+                var layerData = isCompositionMode ? getStackedSegments(filteredByWinner) : filteredByWinner;
+
+                var columnLayerProps = {
+                    id: 'column-layer',
+                    data: layerData,
+                    diskResolution: isLowPerformance ? 4 : 8,
+                    radius: visualScale.radius,
+                    extruded: true,
+                    pickable: true,
+                    opacity: (window.innerWidth <= 768) ? 0.72 : 0.9,
+                    elevationScale: elevationScaleVal,
+                    onClick: function (info) {
+                        manejarClicColumna(info);
+                    },
+                    getPosition: function (d) {
+                        if (isCompositionMode) {
+                            return [d.pos[0], d.pos[1], d.pos[2] * elevationScaleVal];
+                        }
+                        var lon = Number(d.properties.lon);
+                        var lat = Number(d.properties.lat);
+                        if (isNaN(lon) || isNaN(lat)) {
+                            lon = d.geometry.coordinates[0];
+                            lat = d.geometry.coordinates[1];
+                        }
+                        return [lon, lat, 0];
+                    },
+                    getFillColor: function (d) {
+                        var feature = d.feature || d;
+                        
+                        // Highly optimized constant-time filter check using local variables instead of DOM queries
+                        var matchesDep = (currentDepFilterVal === 'Todos' || feature.properties.dep === currentDepFilterVal);
+                        var selected;
+                        if (searchFeature) {
+                            selected = (feature.properties.rec === searchFeature.properties.rec &&
+                                        feature.properties.mun === searchFeature.properties.mun);
+                        } else {
+                            selected = matchesDep;
+                        }
+
+                        // 1. Ghost Mode / Soft Filtering (CRITICAL CONSTRAINT!)
+                        if (hasActiveFocus && !selected) {
+                            var isDark = document.body.classList.contains('dark-theme');
+                            var fadedRgb = isDark ? [45, 45, 45] : [210, 210, 210];
+                            return [fadedRgb[0], fadedRgb[1], fadedRgb[2], 25]; // soft ghost cylinder
+                        }
+
+                        // 2. Base Color Extraction
+                        var baseColor;
+                        var winner = getWinnerForFeature(feature);
+                        var colorByParty = ELECTION.PARTY_COLORS_RGB;
+                        if (isCompositionMode) {
+                            baseColor = d.color || [154, 177, 181];
+                        } else if (activeVisualizationMode === 'winner') {
+                            baseColor = colorByParty[String(winner)] || [154, 177, 181];
+                        } else {
+                            if (activeVisualizationMode === 'participation') {
+                                var par = ElectionUtils.getParticipation(feature, currentRound);
+
+                                var colStr = getParticipationColor(par);
+                                var rgb = colStr.match(/\d+/g).map(Number);
+                                baseColor = [rgb[0], rgb[1], rgb[2]];
+                            } else if (activeVisualizationMode === 'margin') {
+                                baseColor = getMarginToneColor(feature, winner, colorByParty);
+                            } else {
+                                baseColor = colorByParty[String(winner)] || [154, 177, 181];
+                            }
+                        }
+
+                        // 3. Margin of Victory Intensity Mapping
+                        var alpha = 220;
+
+                        if (activeVisualizationMode === 'margin') {
+                            baseColor = getMarginToneColor(feature, winner, colorByParty);
+                            alpha = getMarginToneAlpha(feature);
+                        }
+
+                        return [baseColor[0], baseColor[1], baseColor[2], alpha];
+                    },
+                    getElevation: function (d) {
+                        if (isCompositionMode) {
+                            return d.height;
+                        }
+                        return getEligibleVoters(d);
+                    },
+                    updateTriggers: {
+                        // Refined triggers to avoid recalculating static attributes (only recompute when strictly necessary)
+                        getFillColor: [activeVisualizationMode, currentRound, currentDepFilterVal, searchFeature],
+                        getElevation: [activeVisualizationMode, currentRound],
+                        getPosition: [activeVisualizationMode, elevationScaleVal]
+                    }
+                };
+
+                if (isMobile) {
+                    removeMapLibreFallbackLayer();
+                    if (!updateMapLibreExtrusionLayer(filteredByWinner, activeVisualizationMode, visualScale, elevationScaleVal, hasActiveFocus, currentDepFilterVal, searchFeature)) {
+                        updateMapLibreFallbackLayer();
+                        return;
+                    }
+                } else {
+                    var columnLayer = new deck.ColumnLayer(columnLayerProps);
+                    deckOverlay.setProps({
+                        layers: [columnLayer]
+                    });
+                }
+                if (map && typeof map.triggerRepaint === 'function') {
+                    map.triggerRepaint();
+                }
+            } catch (err) {
+                console.error("Fallo al actualizar Deck.gl ColumnLayer. Activando fallback de MapLibre:", err);
+                isDeckSupported = false;
+                updateMapLibreFallbackLayer();
+            }
         }
 
         function manejarClicColumna(info) {
@@ -2188,10 +2758,7 @@
 
         function closePrecinctDetails() {
             selectedDetailObject = null;
-            selectedSearchFeature = null;
-            
-            var searchInput = document.getElementById('searchInput');
-            if (searchInput) searchInput.value = '';
+
             var searchResults = document.getElementById('searchResults');
             if (searchResults) {
                 searchResults.innerHTML = '';
@@ -2204,9 +2771,6 @@
             }
 
             updateSidebarRightState();
-
-            scheduleDeckLayerUpdate();
-            refreshMapAndStats(currentFilteredFeatures);
         }
 
         function updateSidebarRightState() {
@@ -2817,7 +3381,7 @@
             }
         }
 
-        // Single Theme Toggle click listener in 3D
+        // Connect Theme Toggle click listener
         var themeToggle = document.getElementById('btnThemeToggle');
         if (themeToggle) {
             themeToggle.addEventListener('click', function () {
@@ -2827,7 +3391,7 @@
             });
         }
 
-        // Visualization Mode
+        // Connect Color Mode buttons
         document.querySelectorAll('.color-mode-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 document.querySelectorAll('.color-mode-btn').forEach(function (b) {
@@ -2842,28 +3406,6 @@
                 refreshSelectedDetailPanel();
             });
         });
-
-        // Initialize Page
-        applyVisualizationTextLabels();
-        populateFilters();
-        populateWinnerFilterOptions();
-        setupSearch();
-        setRound('primera');
-        applyElectoralTheme(initialTheme);
-        updateSidebarRightState();
-
-        // Also add window resize listener to dynamically update the display states
-        window.addEventListener('resize', function () {
-            updateSidebarRightState();
-        });
-
-        // Add event listener to back button inside the results panel
-        var btnBackToGeneral = document.getElementById('btnBackToGeneral');
-        if (btnBackToGeneral) {
-            btnBackToGeneral.addEventListener('click', function () {
-                closePrecinctDetails();
-            });
-        }
 
         // Mobile responsive sheet tabs and toggle logic
         function switchMobileTab(tab) {
@@ -2913,135 +3455,205 @@
             }
         }
 
-        // Connect click event listeners for mobile tabs
-        var tabs = [
-            { id: 'mobileTabBtnFiltersLeft', tab: 'filters' },
-            { id: 'mobileTabBtnResultsLeft', tab: 'results' },
-            { id: 'mobileTabBtnFiltersRight', tab: 'filters' },
-            { id: 'mobileTabBtnResultsRight', tab: 'results' }
-        ];
-        tabs.forEach(function(item) {
-            var el = document.getElementById(item.id);
-            if (el) {
-                el.addEventListener('click', function(e) {
-                    if (e) {
-                        e.preventDefault();
-                        e.stopPropagation();
+        // Decoupled Initialization Routines for Robustness on Mobiles
+        function initMobileControls() {
+            // Connect click event listeners for mobile tabs
+            var tabs = [
+                { id: 'mobileTabBtnFiltersLeft', tab: 'filters' },
+                { id: 'mobileTabBtnResultsLeft', tab: 'results' },
+                { id: 'mobileTabBtnFiltersRight', tab: 'filters' },
+                { id: 'mobileTabBtnResultsRight', tab: 'results' }
+            ];
+            tabs.forEach(function(item) {
+                var el = document.getElementById(item.id);
+                if (el) {
+                    el.addEventListener('click', function(e) {
+                        if (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }
+                        switchMobileTab(item.tab);
+                    });
+                }
+            });
+
+            // Bottom sheet toggle handles
+            var toggles = [
+                { toggleId: 'sbToggleLeft', sidebarId: 'sb-left' },
+                { toggleId: 'sbToggleRight', sidebarId: 'sb-right' }
+            ];
+            toggles.forEach(function(item) {
+                var toggleEl = document.getElementById(item.toggleId);
+                var sbEl = document.getElementById(item.sidebarId);
+                if (toggleEl && sbEl) {
+                    var toggleSidebar = function() {
+                        sbEl.classList.toggle('sidebar-collapsed');
+                        toggleEl.setAttribute('aria-expanded', String(!sbEl.classList.contains('sidebar-collapsed')));
+                        if (map) {
+                            map.resize();
+                            setTimeout(function () {
+                                map.resize();
+                            }, 150);
+                            setTimeout(function () {
+                                map.resize();
+                            }, 350);
+                        }
+                    };
+                    toggleEl.addEventListener('click', toggleSidebar);
+                    toggleEl.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleSidebar();
+                        }
+                    });
+                }
+            });
+
+            // Close sidebar on click outside on mobile in 3D view
+            document.addEventListener('click', function(event) {
+                if (window.innerWidth <= 768) {
+                    var sbLeft = document.getElementById('sb-left');
+                    var sbRight = document.getElementById('sb-right');
+                    
+                    var clickInsideLeft = sbLeft && sbLeft.contains(event.target);
+                    var clickInsideRight = sbRight && sbRight.contains(event.target);
+                    
+                    var topbar = document.querySelector('.topbar');
+                    var clickInsideTopbar = topbar && topbar.contains(event.target);
+                    
+                    var isToggleClick = event.target.closest('.sidebar-toggle-handle') || 
+                                        event.target.closest('.mobile-tabs') || 
+                                        event.target.closest('.round-btn') || 
+                                        event.target.closest('.base-btn') || 
+                                        event.target.closest('.mode-switch-btn') || 
+                                        event.target.closest('.source-methodology-btn') || 
+                                        event.target.closest('.theme-toggle-btn');
+                    
+                    if (!clickInsideLeft && !clickInsideRight && !clickInsideTopbar && !isToggleClick) {
+                        var needsResize = false;
+                        if (sbLeft && !sbLeft.classList.contains('sidebar-collapsed')) {
+                            sbLeft.classList.add('sidebar-collapsed');
+                            needsResize = true;
+                        }
+                        if (sbRight && !sbRight.classList.contains('sidebar-collapsed')) {
+                            sbRight.classList.add('sidebar-collapsed');
+                            needsResize = true;
+                        }
+                        if (needsResize && map) {
+                            map.resize();
+                            setTimeout(function () {
+                                map.resize();
+                            }, 150);
+                            setTimeout(function () {
+                                map.resize();
+                            }, 350);
+                        }
                     }
-                    switchMobileTab(item.tab);
+                }
+            });
+
+            // Initialize mobile state
+            if (window.innerWidth <= 768) {
+                var sbLeft = document.getElementById('sb-left');
+                var sbRight = document.getElementById('sb-right');
+                var sbToggleLeft = document.getElementById('sbToggleLeft');
+                var sbToggleRight = document.getElementById('sbToggleRight');
+                if (sbLeft) sbLeft.classList.remove('sidebar-collapsed');
+                if (sbRight) sbRight.classList.add('sidebar-collapsed');
+                if (sbToggleLeft) sbToggleLeft.setAttribute('aria-expanded', 'true');
+                if (sbToggleRight) sbToggleRight.setAttribute('aria-expanded', 'false');
+                switchMobileTab('filters');
+            }
+        }
+
+        function initFiltersAndSearch() {
+            applyVisualizationTextLabels();
+            populateFilters();
+            populateWinnerFilterOptions();
+            setupSearch();
+            setRound('primera');
+            applyElectoralTheme(initialTheme);
+            updateSidebarRightState();
+        }
+
+        function initGlobalListeners() {
+            // Theme toggle listener
+            var themeToggle = document.getElementById('btnThemeToggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', function () {
+                    var currentTheme = localStorage.getItem('electoral-map-theme') || 'light';
+                    var nextTheme = (currentTheme === 'dark') ? 'light' : 'dark';
+                    applyElectoralTheme(nextTheme);
                 });
             }
-        });
 
-        // Bottom sheet toggle handles
-        var toggles = [
-            { toggleId: 'sbToggleLeft', sidebarId: 'sb-left' },
-            { toggleId: 'sbToggleRight', sidebarId: 'sb-right' }
-        ];
-        toggles.forEach(function(item) {
-            var toggleEl = document.getElementById(item.toggleId);
-            var sbEl = document.getElementById(item.sidebarId);
-            if (toggleEl && sbEl) {
-                var toggleSidebar = function() {
-                    sbEl.classList.toggle('sidebar-collapsed');
-                    toggleEl.setAttribute('aria-expanded', String(!sbEl.classList.contains('sidebar-collapsed')));
-                    setTimeout(function () {
-                        map.resize();
-                    }, 320);
-                };
-                toggleEl.addEventListener('click', toggleSidebar);
-                toggleEl.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        toggleSidebar();
+            // Window resize listener
+            window.addEventListener('resize', function () {
+                updateSidebarRightState();
+                if (map) map.resize();
+            });
+
+            // Add event listener to back button inside the results panel
+            var btnBackToGeneral = document.getElementById('btnBackToGeneral');
+            if (btnBackToGeneral) {
+                btnBackToGeneral.addEventListener('click', function () {
+                    closePrecinctDetails();
+                });
+            }
+
+            // Modal handlers
+            var sourceMethodologyModal = document.getElementById('sourceMethodologyModal');
+            var btnSourceMethodology = document.getElementById('btnSourceMethodology');
+            var btnCloseSourceMethodology = document.getElementById('btnCloseSourceMethodology');
+
+            if (btnSourceMethodology) {
+                btnSourceMethodology.addEventListener('click', openSourceMethodologyModal);
+            }
+
+            if (btnCloseSourceMethodology) {
+                btnCloseSourceMethodology.addEventListener('click', closeSourceMethodologyModal);
+            }
+
+            if (sourceMethodologyModal) {
+                sourceMethodologyModal.addEventListener('click', function(e) {
+                    if (e.target === sourceMethodologyModal) {
+                        closeSourceMethodologyModal();
                     }
                 });
             }
-        });
 
-        var sourceMethodologyModal = document.getElementById('sourceMethodologyModal');
-        var btnSourceMethodology = document.getElementById('btnSourceMethodology');
-        var btnCloseSourceMethodology = document.getElementById('btnCloseSourceMethodology');
-
-        function openSourceMethodologyModal() {
-            if (!sourceMethodologyModal) return;
-            sourceMethodologyModal.classList.remove('hidden');
-            sourceMethodologyModal.setAttribute('aria-hidden', 'false');
-            if (btnCloseSourceMethodology) btnCloseSourceMethodology.focus();
-        }
-
-        function closeSourceMethodologyModal() {
-            if (!sourceMethodologyModal) return;
-            sourceMethodologyModal.classList.add('hidden');
-            sourceMethodologyModal.setAttribute('aria-hidden', 'true');
-            if (btnSourceMethodology) btnSourceMethodology.focus();
-        }
-
-        if (btnSourceMethodology) {
-            btnSourceMethodology.addEventListener('click', openSourceMethodologyModal);
-        }
-
-        if (btnCloseSourceMethodology) {
-            btnCloseSourceMethodology.addEventListener('click', closeSourceMethodologyModal);
-        }
-
-        if (sourceMethodologyModal) {
-            sourceMethodologyModal.addEventListener('click', function(e) {
-                if (e.target === sourceMethodologyModal) {
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && sourceMethodologyModal && !sourceMethodologyModal.classList.contains('hidden')) {
                     closeSourceMethodologyModal();
                 }
             });
         }
 
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && sourceMethodologyModal && !sourceMethodologyModal.classList.contains('hidden')) {
-                closeSourceMethodologyModal();
+        // Protected App Initialization called inside IIFE
+        (function initApp() {
+            console.log("=== INICIALIZANDO APLICACIÓN ===");
+            try {
+                initMobileControls();
+                console.log("-> Controles móviles inicializados");
+            } catch (e) {
+                console.error("Fallo al inicializar controles móviles:", e);
             }
-        });
 
-        // Initialize mobile state
-        if (window.innerWidth <= 768) {
-            var sbLeft = document.getElementById('sb-left');
-            var sbRight = document.getElementById('sb-right');
-            var sbToggleLeft = document.getElementById('sbToggleLeft');
-            var sbToggleRight = document.getElementById('sbToggleRight');
-            if (sbLeft) sbLeft.classList.add('sidebar-collapsed');
-            if (sbRight) sbRight.classList.add('sidebar-collapsed');
-            if (sbToggleLeft) sbToggleLeft.setAttribute('aria-expanded', 'false');
-            if (sbToggleRight) sbToggleRight.setAttribute('aria-expanded', 'false');
-            switchMobileTab('filters');
-        }
-
-        // Close sidebar on click outside on mobile in 3D view
-        document.addEventListener('click', function(event) {
-            if (window.innerWidth <= 768) {
-                var sbLeft = document.getElementById('sb-left');
-                var sbRight = document.getElementById('sb-right');
-                
-                var clickInsideLeft = sbLeft && sbLeft.contains(event.target);
-                var clickInsideRight = sbRight && sbRight.contains(event.target);
-                
-                var topbar = document.querySelector('.topbar');
-                var clickInsideTopbar = topbar && topbar.contains(event.target);
-                
-                var isToggleClick = event.target.closest('.sidebar-toggle-handle') || 
-                                    event.target.closest('.mobile-tabs') || 
-                                    event.target.closest('.round-btn') || 
-                                    event.target.closest('.base-btn') || 
-                                    event.target.closest('.mode-switch-btn') || 
-                                    event.target.closest('.source-methodology-btn') || 
-                                    event.target.closest('.theme-toggle-btn');
-                
-                if (!clickInsideLeft && !clickInsideRight && !clickInsideTopbar && !isToggleClick) {
-                    if (sbLeft && !sbLeft.classList.contains('sidebar-collapsed')) {
-                        sbLeft.classList.add('sidebar-collapsed');
-                    }
-                    if (sbRight && !sbRight.classList.contains('sidebar-collapsed')) {
-                        sbRight.classList.add('sidebar-collapsed');
-                    }
-                }
+            try {
+                initFiltersAndSearch();
+                console.log("-> Filtros y búsqueda inicializados");
+            } catch (e) {
+                console.error("Fallo al inicializar filtros y búsqueda:", e);
             }
-        });
+
+            try {
+                initGlobalListeners();
+                console.log("-> Escuchadores globales inicializados");
+            } catch (e) {
+                console.error("Fallo al inicializar escuchadores globales:", e);
+            }
+            console.log("=== FIN INICIALIZACIÓN APLICACIÓN ===");
+        })();
     </script>
 </body>
 
