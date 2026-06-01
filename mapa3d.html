@@ -2,6 +2,16 @@
 <html lang="es">
 
 <head>
+    <script>
+        (function() {
+            var theme = localStorage.getItem('electoral-map-theme') || 'light';
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark-theme');
+            } else {
+                document.documentElement.classList.remove('dark-theme');
+            }
+        })();
+    </script>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
@@ -919,6 +929,16 @@
 </head>
 
 <body>
+    <script>
+        (function() {
+            var theme = localStorage.getItem('electoral-map-theme') || 'light';
+            if (theme === 'dark') {
+                document.body.classList.add('dark-theme');
+            } else {
+                document.body.classList.remove('dark-theme');
+            }
+        })();
+    </script>
 
     <header class="topbar">
         <div class="brand" style="display: flex; align-items: center; gap: 8px;">
@@ -1162,6 +1182,15 @@
         var mapStyleLight = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
         var mapStyleOsm = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
 
+        var initialTheme = localStorage.getItem('electoral-map-theme') || 'light';
+        var initialStyle = mapStyleLight;
+        if (initialTheme === 'dark') {
+            initialStyle = mapStyleDark;
+        } else if (initialTheme === 'osm') {
+            initialStyle = mapStyleOsm;
+        }
+        var currentMapStyleUrl = initialStyle;
+
         var isMobile = window.innerWidth < 768;
         var initialZoom = isMobile ? 4.7 : 5.5;
         var initialPitch = isMobile ? 55 : 52; // Tilted proudly to 52 degrees to enhance cylinder perspective
@@ -1169,7 +1198,7 @@
 
         var map = new maplibregl.Map({
             container: 'map',
-            style: mapStyleLight, // default light theme
+            style: initialStyle,
             center: [-63.5, -16.5], // centered on Bolivia
             zoom: isMobile ? initialZoom : 4.8, // starts wider on desktop to fly in
             pitch: isMobile ? initialPitch : 30, // starts flatter
@@ -2525,33 +2554,47 @@
             });
         }
 
+        // Function to apply basemap and theme in 3D
+        function applyElectoralTheme(themeName) {
+            var styleUrl;
+            if (themeName === 'dark') {
+                styleUrl = mapStyleDark;
+                document.body.classList.add('dark-theme');
+                document.documentElement.classList.add('dark-theme');
+                localStorage.setItem('electoral-map-theme', 'dark');
+            } else if (themeName === 'osm') {
+                styleUrl = mapStyleOsm;
+                document.body.classList.remove('dark-theme');
+                document.documentElement.classList.remove('dark-theme');
+                localStorage.setItem('electoral-map-theme', 'osm');
+            } else {
+                styleUrl = mapStyleLight;
+                document.body.classList.remove('dark-theme');
+                document.documentElement.classList.remove('dark-theme');
+                localStorage.setItem('electoral-map-theme', 'light');
+            }
+
+            // Only update map style if map is initialized and style is actually different
+            if (map && typeof map.setStyle === 'function' && currentMapStyleUrl !== styleUrl) {
+                map.setStyle(styleUrl);
+                currentMapStyleUrl = styleUrl;
+            }
+
+            // Re-trigger layout updates
+            setTimeout(function () {
+                if (typeof scheduleDeckLayerUpdate === 'function') scheduleDeckLayerUpdate();
+                if (typeof scheduleLegendUpdate === 'function') scheduleLegendUpdate(currentFilteredFeatures);
+            }, 300);
+
+            document.querySelectorAll('.base-btn[data-base]').forEach(function (b) {
+                b.classList.toggle('active', b.dataset.base === themeName);
+            });
+        }
+
         // Basemaps selector in 3D (Refined selector to exclude btnResetView)
         document.querySelectorAll('.base-btn[data-base]').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                var styleUrl;
-                if (this.dataset.base === 'osm') {
-                    styleUrl = mapStyleOsm;
-                    document.body.classList.remove('dark-theme');
-                } else if (this.dataset.base === 'light') {
-                    styleUrl = mapStyleLight;
-                    document.body.classList.remove('dark-theme');
-                } else {
-                    styleUrl = mapStyleDark;
-                    document.body.classList.add('dark-theme');
-                }
-
-                map.setStyle(styleUrl);
-
-                // Re-trigger layout updates
-                setTimeout(function () {
-                    scheduleDeckLayerUpdate();
-                    scheduleLegendUpdate(currentFilteredFeatures);
-                }, 300);
-
-                document.querySelectorAll('.base-btn[data-base]').forEach(function (b) {
-                    b.classList.remove('active');
-                });
-                this.classList.add('active');
+                applyElectoralTheme(this.dataset.base);
             });
         });
 
@@ -2577,6 +2620,7 @@
         populateWinnerFilterOptions();
         setupSearch();
         setRound('primera');
+        applyElectoralTheme(initialTheme);
 
         // Mobile responsive sheet tabs and toggle logic
         function switchMobileTab(tab) {
