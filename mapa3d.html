@@ -691,6 +691,10 @@
             }
         });
 
+        map.on('moveend', function () {
+            updateDeckLayers();
+        });
+
         // 3. Helper Functions for Filtering and Camera Animation
         function isFeatureSelected(feature) {
             var dep = depFilter.value;
@@ -705,29 +709,50 @@
             return matchesDep;
         }
 
+        function getFeatureCoordinates(feature) {
+            var lon = Number(feature.properties.lon);
+            var lat = Number(feature.properties.lat);
+            if (isNaN(lon) || isNaN(lat)) {
+                if (feature.geometry && feature.geometry.coordinates) {
+                    lon = feature.geometry.coordinates[0];
+                    lat = feature.geometry.coordinates[1];
+                }
+            }
+            if (isNaN(lon) || isNaN(lat)) return null;
+            return [lon, lat];
+        }
+
+        function getDepartmentFitPadding() {
+            if (window.innerWidth < 768) {
+                return { top: 130, bottom: 220, left: 40, right: 40 };
+            }
+
+            var sbLeft = document.getElementById('sb-left');
+            var sbRight = document.getElementById('sb-right');
+            var leftPadding = sbLeft && sbLeft.classList.contains('sidebar-collapsed') ? 90 : 370;
+            var rightPadding = sbRight && sbRight.classList.contains('sidebar-collapsed') ? 90 : 370;
+            return { top: 130, bottom: 70, left: leftPadding, right: rightPadding };
+        }
+
         function getDepartmentCenterAndZoom(depName) {
             var features = allFeatures.filter(function (f) {
                 return f.properties.dep === depName;
             });
-            if (features.length === 0) return { center: [-63.5, -16.5], zoom: 5.5 };
+            if (features.length === 0) return { center: [-63.5, -16.5], zoom: 5.5, bounds: null };
 
             var minLon = 180, maxLon = -180, minLat = 90, maxLat = -90;
             features.forEach(function (f) {
-                var lon = Number(f.properties.lon);
-                var lat = Number(f.properties.lat);
-                if (isNaN(lon) || isNaN(lat)) {
-                    if (f.geometry && f.geometry.coordinates) {
-                        lon = f.geometry.coordinates[0];
-                        lat = f.geometry.coordinates[1];
-                    }
-                }
-                if (lon && lat && !isNaN(lon) && !isNaN(lat)) {
-                    if (lon < minLon) minLon = lon;
-                    if (lon > maxLon) maxLon = lon;
-                    if (lat < minLat) minLat = lat;
-                    if (lat > maxLat) maxLat = lat;
-                }
+                var coords = getFeatureCoordinates(f);
+                if (!coords) return;
+                var lon = coords[0];
+                var lat = coords[1];
+                if (lon < minLon) minLon = lon;
+                if (lon > maxLon) maxLon = lon;
+                if (lat < minLat) minLat = lat;
+                if (lat > maxLat) maxLat = lat;
             });
+
+            if (minLon === 180 || minLat === 90) return { center: [-63.5, -16.5], zoom: 5.5, bounds: null };
 
             var centerLon = (minLon + maxLon) / 2;
             var centerLat = (minLat + maxLat) / 2;
@@ -745,7 +770,73 @@
             };
 
             var zoom = zoomMap[depName] || 7.5;
-            return { center: [centerLon, centerLat], zoom: zoom };
+            return {
+                center: [centerLon, centerLat],
+                zoom: zoom,
+                bounds: [[minLon, minLat], [maxLon, maxLat]]
+            };
+        }
+
+        function focusDepartment(depName) {
+            var loc = getDepartmentCenterAndZoom(depName);
+            var minZoom = window.innerWidth < 768 ? 6.2 : 6.5;
+            var maxZoom = window.innerWidth < 768 ? 10.0 : 10.5;
+
+            if (!loc.bounds) {
+                map.flyTo({
+                    center: loc.center,
+                    zoom: Math.max(minZoom, Math.min(loc.zoom, maxZoom)),
+                    pitch: 52,
+                    bearing: 15,
+                    essential: true,
+                    duration: 2000
+                });
+                return;
+            }
+
+            map.fitBounds(loc.bounds, {
+                padding: getDepartmentFitPadding(),
+                maxZoom: maxZoom,
+                pitch: 52,
+                bearing: 15,
+                essential: true,
+                duration: 2000
+            });
+
+            map.once('moveend', function () {
+                if (depFilter.value !== depName) return;
+                if (map.getZoom() < minZoom) {
+                    map.easeTo({
+                        center: loc.center,
+                        zoom: minZoom,
+                        pitch: 52,
+                        bearing: 15,
+                        duration: 450,
+                        essential: true
+                    });
+                }
+            });
+        }
+
+        function getColumnVisualScale(zoom, hasActiveFocus) {
+            var radius;
+            var elevationScale;
+
+            if (zoom < 6.2) {
+                radius = 150;
+                elevationScale = 0.62;
+            } else if (zoom < 8.5) {
+                radius = 230;
+                elevationScale = hasActiveFocus ? 0.95 : 0.78;
+            } else {
+                radius = 120;
+                elevationScale = 0.48;
+            }
+
+            return {
+                radius: radius,
+                elevationScale: elevationScale
+            };
         }
 
         function getActiveVisualizationMode() {
@@ -792,13 +883,14 @@
 
         // 4. Deck.gl Layer Builder
         function updateDeckLayers() {
-            var elevationScaleVal = 0.75;
             var activeVisualizationMode = getActiveVisualizationMode();
 
             // Cache values outside the hot loop to completely avoid slow DOM queries inside getFillColor
             var currentDepFilterVal = depFilter.value;
             var searchFeature = selectedSearchFeature;
             var hasActiveFocus = (currentDepFilterVal !== 'Todos' || searchFeature !== null);
+            var visualScale = getColumnVisualScale(map.getZoom(), hasActiveFocus);
+            var elevationScaleVal = visualScale.elevationScale;
 
             var winner = winnerFilter.value;
             var filteredByWinner = allFeatures.filter(function (f) {
@@ -810,7 +902,7 @@
                 id: 'column-layer',
                 data: filteredByWinner,
                 diskResolution: 8, // Optimized from 12 to 8 (reduces geometry complexities by 33% with identical visual fidelity)
-                radius: 180, // radius of cylinders in meters
+                radius: visualScale.radius,
                 extruded: true,
                 pickable: true,
                 elevationScale: elevationScaleVal,
@@ -1338,15 +1430,7 @@
                     duration: 2000
                 });
             } else {
-                var loc = getDepartmentCenterAndZoom(dep);
-                map.flyTo({
-                    center: loc.center,
-                    zoom: loc.zoom,
-                    pitch: 50,
-                    bearing: 15,
-                    essential: true,
-                    duration: 2000
-                });
+                focusDepartment(dep);
             }
             applyFilters();
         });
