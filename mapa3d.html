@@ -2221,6 +2221,24 @@
                             });
 
                             scheduleDeckLayerUpdate();
+
+                            setTimeout(function () {
+                                selectedDetailObject = f;
+                                var panel = document.getElementById('precinctDetailsPanel');
+                                var content = document.getElementById('precinctDetailsContent');
+                                if (panel && content) {
+                                    content.innerHTML = getRecintoTooltipHTML(f);
+                                    panel.classList.remove('hidden');
+
+                                    if (window.innerWidth < 768) {
+                                        switchMobileTab('results');
+                                        var sbRight = document.getElementById('sb-right');
+                                        var sbToggleRight = document.getElementById('sbToggleRight');
+                                        if (sbRight) sbRight.classList.remove('sidebar-collapsed');
+                                        if (sbToggleRight) sbToggleRight.setAttribute('aria-expanded', 'true');
+                                    }
+                                }
+                            }, 1600);
                         }
 
                         searchInput.value = '';
