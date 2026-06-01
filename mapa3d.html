@@ -1275,7 +1275,7 @@
 
         // Detección preventiva de dispositivos móviles o baja potencia gráfica
         var isLowPerformance = (function () {
-            if (window.innerWidth < 768) return true;
+            if (window.innerWidth <= 768) return true;
             if (navigator.deviceMemory && navigator.deviceMemory <= 4) return true;
             if (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) return true;
             if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true;
@@ -1360,7 +1360,6 @@
             zoom: isMobile ? initialZoom : 4.8, // starts wider on desktop to fly in
             pitch: isMobile ? initialPitch : 30, // starts flatter
             bearing: isMobile ? initialBearing : -20, // starts rotated opposite
-            antialias: !isLowPerformance,
             fadeDuration: isLowPerformance ? 0 : 300
         });
 
@@ -1712,7 +1711,7 @@
 
         // 2. Setup Deck.gl MapboxOverlay
         var deckOverlay = new deck.MapboxOverlay({
-            interleaved: true,
+            interleaved: !isMobile,
             layers: [],
             getTooltip: function (info) {
                 // Suppress hover floating popup on mobile/touch screens or when details panel is active
@@ -2063,7 +2062,7 @@
                 radius: visualScale.radius,
                 extruded: true,
                 pickable: true,
-                opacity: (window.innerWidth < 768) ? 0.72 : 0.9,
+                opacity: (window.innerWidth <= 768) ? 0.72 : 0.9,
                 elevationScale: elevationScaleVal,
                 onClick: function (info) {
                     manejarClicColumna(info);
