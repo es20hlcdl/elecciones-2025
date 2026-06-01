@@ -815,6 +815,106 @@
                 border-bottom: 2px solid var(--btn-active-color);
             }
         }
+
+        /* Desktop Floating Dashboard Card style for the right sidebar */
+        @media (min-width: 768px) {
+            .sidebar-right {
+                bottom: auto !important;
+                height: auto !important;
+                max-height: 80vh !important;
+                box-shadow: 0 12px 40px var(--glass-shadow) !important;
+            }
+            .sidebar-right.sidebar-collapsed {
+                height: auto !important;
+                min-height: 196px !important;
+            }
+            .popup-candidates-list::-webkit-scrollbar {
+                width: 4px;
+            }
+            .popup-candidates-list::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            .popup-candidates-list::-webkit-scrollbar-thumb {
+                background: rgba(0, 0, 0, 0.12);
+                border-radius: 99px;
+            }
+            .dark-theme .popup-candidates-list::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.12);
+            }
+        }
+
+        /* Ficha Flotante Contextual style */
+        .precinct-details-panel {
+            background: var(--glass-bg) !important;
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--glass-border) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 12px 40px var(--glass-shadow) !important;
+            color: var(--text-primary) !important;
+            padding: 20px 16px 16px !important;
+            z-index: 1500 !important;
+            overflow-y: auto !important;
+            box-sizing: border-box;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+
+        .precinct-details-panel.hidden {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transform: translateX(40px) !important;
+        }
+
+        .precinct-details-panel .close-btn {
+            position: absolute !important;
+            font-size: 20px !important;
+            color: var(--text-muted) !important;
+            top: 12px !important;
+            right: 14px !important;
+            cursor: pointer;
+            transition: color 0.2s ease;
+            background: transparent;
+            border: none;
+            line-height: 1;
+        }
+
+        .precinct-details-panel .close-btn:hover {
+            color: var(--text-primary) !important;
+        }
+
+        /* Desktop specific card layout */
+        @media (min-width: 768px) {
+            .precinct-details-panel {
+                position: fixed !important;
+                top: calc(var(--header-height) + 36px) !important;
+                right: calc(var(--sidebar-width) + 40px) !important; /* Floats contextual next to right sidebar */
+                width: 320px !important;
+                max-height: 78vh !important;
+            }
+        }
+
+        /* Mobile specific bottom sheet layout */
+        @media (max-width: 767px) {
+            .precinct-details-panel {
+                position: absolute !important;
+                bottom: 12px !important;
+                top: auto !important;
+                left: 12px !important;
+                right: 12px !important;
+                width: calc(100% - 24px) !important;
+                height: 280px !important;
+                max-height: 52vh !important;
+                border-radius: 16px !important;
+                box-shadow: 0 -8px 24px var(--glass-shadow) !important;
+                z-index: 2000 !important;
+            }
+
+            .precinct-details-panel.hidden {
+                transform: translateY(calc(100% + 20px)) !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
+            }
+        }
     </style>
 </head>
 
@@ -984,16 +1084,13 @@
                 </div>
             </div>
 
-            <!-- Vista Dinámica: Detalles de un Recinto Específico -->
-            <div id="sb-right-details" class="hidden" style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
-                <div class="sidebar-right-header">
-                    <button class="btn-back" id="btnBackToGeneral" type="button">
-                        <i class="fas fa-arrow-left"></i> Volver al General
-                    </button>
-                </div>
-                <div id="precinctDetailsContent"></div>
-            </div>
         </aside>
+
+        <!-- Ficha Flotante Dinámica: Detalles de un Recinto Específico -->
+        <div id="precinctDetailsPanel" class="precinct-details-panel hidden">
+            <button class="close-btn" id="btnDetailsClose" type="button" aria-label="Cerrar">&times;</button>
+            <div id="precinctDetailsContent"></div>
+        </div>
 
         <main class="map-wrap">
             <div id="map" style="width:100%; height:100%;"></div>
@@ -1397,41 +1494,33 @@
             });
             var winnerPct = winnerData ? winnerData.pct : 0;
             var winnerColor = colorByParty[winner] || '#9ab1b5';
-            var activeVisualizationMetric = getActiveVisualizationMetric(feature);
             
-            var segmentHighlight = '';
+            var hab = isSecondRound ? (Number(feature.properties.hab_sv) || 0) : (Number(feature.properties.hab) || 0);
+            
             var isDark = document.body.classList.contains('dark-theme');
             var textColor = isDark ? '#fff' : '#111';
             var subColor = isDark ? '#aaa' : '#666';
-            var activeSegNameColor = isDark ? '#fff' : '#2a2a2a';
             
-            if (obj.feature) {
-                var hab = isSecondRound ? (Number(feature.properties.hab_sv) || 0) : (Number(feature.properties.hab) || 0);
-                segmentHighlight = 
-                    '<div style="font-size: 11px; margin-top: 4px; color: ' + subColor + ';">' +
-                        'Segmento apuntado: <strong style="color:' + activeSegNameColor + ';">' + obj.type + '</strong> (' + (hab ? ((obj.votes / hab) * 100).toFixed(1) : 0) + '%)' +
-                    '</div>';
-            }
-
             var html = 
-                '<div style="padding: 10px 12px; font-family:\'Outfit\', Inter, sans-serif; min-width: 190px; box-sizing: border-box;">' +
+                '<div style="padding: 10px 12px; font-family:\'Outfit\', Inter, sans-serif; min-width: 190px; box-sizing: border-box; line-height: 1.4;">' +
                     '<div style="font-weight: 700; font-size: 13px; color: ' + textColor + '; line-height: 1.2;">' + recinto + '</div>' +
                     '<div style="font-size: 11px; color: ' + subColor + '; margin-top: 2px;">' + mun + ' · ' + dep + '</div>' +
-                    '<div style="font-size: 11px; color: ' + subColor + '; margin-top: 6px; display:flex; justify-content:space-between; gap:8px;">' +
-                        '<span>' + activeVisualizationMetric.label + '</span>' +
-                        '<strong style="color:#0f6d72;">' + activeVisualizationMetric.value + '</strong>' +
+                    
+                    '<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 11px;">' +
+                        '<div style="display: flex; align-items: center; gap: 6px;">' +
+                            '<span style="display:inline-block; width: 8px; height: 8px; border-radius:50%; background:' + winnerColor + ';"></span>' +
+                            '<span style="font-weight: 700; color: ' + textColor + ';">' + winner + '</span>' +
+                        '</div>' +
+                        '<span style="font-weight: 600; color:' + winnerColor + ';">' + winnerPct.toFixed(1) + '%</span>' +
                     '</div>' +
                     
-                    '<div style="display: flex; align-items: center; gap: 6px; margin-top: 8px;">' +
-                        '<span style="display:inline-block; width: 8px; height: 8px; border-radius:50%; background:' + winnerColor + ';"></span>' +
-                        '<span style="font-weight: 700; font-size: 12px; color: ' + textColor + ';">' + winner + '</span>' +
-                        '<span style="font-size: 12px; font-weight: 600; color:' + winnerColor + ';">' + winnerPct.toFixed(1) + '%</span>' +
+                    '<div style="font-size: 11px; color: ' + subColor + '; margin-top: 6px; display:flex; justify-content:space-between; gap:8px; border-top: 1px dashed var(--card-border); padding-top: 4px;">' +
+                        '<span>Habilitados</span>' +
+                        '<strong style="color:var(--text-primary);">' + formatNum(hab) + '</strong>' +
                     '</div>' +
-                    
-                    segmentHighlight +
                     
                     '<div style="font-size: 9px; font-weight: 700; color: #0f6d72; text-transform: uppercase; margin-top: 8px; letter-spacing: 0.05em; display: flex; align-items: center; gap: 4px;">' +
-                        '<span>🔍</span> Haz clic para ver detalles' +
+                        '<span>🔍</span> Clic para ver detalles' +
                     '</div>' +
                 '</div>';
                 
@@ -1443,8 +1532,8 @@
             interleaved: true,
             layers: [],
             getTooltip: function (info) {
-                // Suppress hover floating popup on mobile/touch screens
-                if (window.innerWidth < 768 || (info && info.pointerType === 'touch')) {
+                // Suppress hover floating popup on mobile/touch screens or when details panel is active
+                if (window.innerWidth < 768 || (info && info.pointerType === 'touch') || selectedDetailObject !== null) {
                     return null;
                 }
 
@@ -1864,18 +1953,16 @@
 
         function manejarClicColumna(info) {
             var obj = info.object;
-            var generalDiv = document.getElementById('sb-right-general');
-            var detailsDiv = document.getElementById('sb-right-details');
+            var panel = document.getElementById('precinctDetailsPanel');
             var content = document.getElementById('precinctDetailsContent');
 
-            if (!obj || !generalDiv || !detailsDiv || !content) return;
+            if (!obj || !panel || !content) return;
 
             selectedDetailObject = obj;
             var innerHTML = getRecintoTooltipHTML(obj);
             content.innerHTML = innerHTML;
 
-            generalDiv.classList.add('hidden');
-            detailsDiv.classList.remove('hidden');
+            panel.classList.remove('hidden');
 
             // On mobile: programmatically switch active sheet to Resultados tab
             if (window.innerWidth < 768) {
@@ -1890,11 +1977,32 @@
         function refreshSelectedDetailPanel() {
             if (!selectedDetailObject) return;
 
-            var detailsDiv = document.getElementById('sb-right-details');
+            var panel = document.getElementById('precinctDetailsPanel');
             var content = document.getElementById('precinctDetailsContent');
-            if (!detailsDiv || !content || detailsDiv.classList.contains('hidden')) return;
+            if (!panel || !content || panel.classList.contains('hidden')) return;
 
             content.innerHTML = getRecintoTooltipHTML(selectedDetailObject);
+        }
+
+        function closePrecinctDetails() {
+            selectedDetailObject = null;
+            selectedSearchFeature = null;
+            
+            var searchInput = document.getElementById('searchInput');
+            if (searchInput) searchInput.value = '';
+            var searchResults = document.getElementById('searchResults');
+            if (searchResults) {
+                searchResults.innerHTML = '';
+                searchResults.classList.add('hidden');
+            }
+
+            var panel = document.getElementById('precinctDetailsPanel');
+            if (panel) {
+                panel.classList.add('hidden');
+            }
+
+            scheduleDeckLayerUpdate();
+            refreshMapAndStats(currentFilteredFeatures);
         }
 
         // 4. Data processing helpers
@@ -2307,12 +2415,10 @@
             var winner = winnerFilter.value;
             var filterSignature = getFilterSignature();
 
-            // Restore right general stats panel on filter changes
-            var generalDiv = document.getElementById('sb-right-general');
-            var detailsDiv = document.getElementById('sb-right-details');
-            if (generalDiv && detailsDiv) {
-                detailsDiv.classList.add('hidden');
-                generalDiv.classList.remove('hidden');
+            // Hide precinct details panel on filter changes
+            var panel = document.getElementById('precinctDetailsPanel');
+            if (panel) {
+                panel.classList.add('hidden');
             }
             selectedDetailObject = null;
 
@@ -2388,14 +2494,8 @@
                     searchResults.classList.add('hidden');
                 }
 
-                // Restore right general stats panel
-                var generalDiv = document.getElementById('sb-right-general');
-                var detailsDiv = document.getElementById('sb-right-details');
-                if (generalDiv && detailsDiv) {
-                    detailsDiv.classList.add('hidden');
-                    generalDiv.classList.remove('hidden');
-                }
-                selectedDetailObject = null;
+                // Clear active precinct selection and close details panel
+                closePrecinctDetails();
 
                 // 2. Smoothly fly back to the beautiful national overview
                 map.flyTo({
@@ -2417,17 +2517,11 @@
             });
         });
 
-        // Back to General Statistics Button
-        var btnBackToGeneral = document.getElementById('btnBackToGeneral');
-        if (btnBackToGeneral) {
-            btnBackToGeneral.addEventListener('click', function() {
-                var generalDiv = document.getElementById('sb-right-general');
-                var detailsDiv = document.getElementById('sb-right-details');
-                if (generalDiv && detailsDiv) {
-                    detailsDiv.classList.add('hidden');
-                    generalDiv.classList.remove('hidden');
-                }
-                selectedDetailObject = null;
+        // Close Precinct Details Floating Card Button
+        var btnDetailsClose = document.getElementById('btnDetailsClose');
+        if (btnDetailsClose) {
+            btnDetailsClose.addEventListener('click', function() {
+                closePrecinctDetails();
             });
         }
 
