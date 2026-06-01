@@ -135,12 +135,12 @@
             top: 16px;
             left: 20px;
             right: 20px;
-            height: var(--header-height);
+            height: 60px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 16px;
-            padding: 0 20px;
+            gap: 20px;
+            padding: 0 24px;
             background: var(--glass-bg) !important;
             backdrop-filter: blur(20px) saturate(180%);
             -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -149,21 +149,26 @@
             box-shadow: 0 10px 30px var(--glass-shadow);
             z-index: 1010;
             box-sizing: border-box;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .brand {
             font-family: "Outfit", Inter, sans-serif;
-            font-size: 15px;
-            font-weight: 700;
+            font-size: 16px;
+            font-weight: 800;
             color: var(--text-primary);
-            letter-spacing: -0.01em;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+            white-space: nowrap;
         }
 
         .chip-3d {
-            background: rgba(15, 109, 114, 0.12) !important;
+            background: rgba(15, 109, 114, 0.1) !important;
             color: #0f6d72 !important;
-            border: 1px solid rgba(15, 109, 114, 0.25) !important;
+            border: 1px solid rgba(15, 109, 114, 0.2) !important;
             font-size: 10px !important;
             font-weight: 700;
             padding: 3px 8px !important;
@@ -175,106 +180,158 @@
             transition: all 0.2s ease;
         }
         .dark-theme .chip-3d {
-            background: rgba(45, 183, 234, 0.15) !important;
+            background: rgba(45, 183, 234, 0.1) !important;
             color: #2db7ea !important;
-            border-color: rgba(45, 183, 234, 0.3) !important;
+            border-color: rgba(45, 183, 234, 0.2) !important;
         }
 
+        /* Unified Stats Capsule */
         .top-stats {
             display: flex;
-            gap: 8px;
             align-items: center;
+            background: var(--btn-bg) !important;
+            border: 1px solid var(--glass-border) !important;
+            border-radius: 99px;
+            padding: 2px 4px !important;
+            gap: 0 !important;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+            transition: all 0.3s ease;
         }
 
         .chip {
             display: inline-flex;
             align-items: center;
-            padding: 5px 12px !important;
-            border-radius: 99px !important;
-            background: var(--btn-bg) !important;
-            border: 1px solid var(--glass-border) !important;
-            font-size: 11px !important;
+            padding: 6px 16px !important;
+            background: transparent !important;
+            border: none !important;
+            border-right: 1px solid var(--glass-border) !important;
+            font-size: 12px !important;
             font-weight: 600 !important;
             color: var(--text-secondary) !important;
             line-height: 1 !important;
             transition: all 0.2s ease;
+            border-radius: 0 !important;
+        }
+        
+        .chip:last-child {
+            border-right: none !important;
         }
 
         .chip-green {
-            background: rgba(48, 118, 85, 0.1) !important;
-            color: #307655 !important;
-            border-color: rgba(48, 118, 85, 0.25) !important;
+            color: #2e6b4d !important;
             font-weight: 700 !important;
+        }
+        .dark-theme .chip-green {
+            color: #4ed995 !important;
+        }
+
+        /* CSS-injected FontAwesome icons for stats */
+        #chipPart::before {
+            content: '\f0c0';
+            font-family: 'Font Awesome 5 Free';
+            font-weight: 900;
+            margin-right: 6px;
+            opacity: 0.8;
+        }
+        #chipVal::before {
+            content: '\f772';
+            font-family: 'Font Awesome 5 Free';
+            font-weight: 900;
+            margin-right: 6px;
+            opacity: 0.8;
+        }
+        #chipRec::before {
+            content: '\f3c5';
+            font-family: 'Font Awesome 5 Free';
+            font-weight: 900;
+            margin-right: 6px;
+            opacity: 0.8;
         }
 
         .topbar-controls {
             display: flex;
             align-items: center;
+            gap: 10px !important;
+            flex-shrink: 0;
+        }
+
+        .mini-controls {
+            display: flex;
+            align-items: center;
             gap: 8px !important;
         }
 
-        /* Combined controls bar */
-        .basemap-bar {
-            background: var(--btn-bg) !important;
+        /* Premium interactive controls */
+        .base-btn, .source-methodology-btn {
             border: 1px solid var(--glass-border) !important;
-            border-radius: 99px;
-            padding: 2px !important;
-            display: flex;
-            align-items: center;
-            gap: 1px;
-        }
-
-        .base-btn {
-            border: none;
-            background: transparent !important;
+            background: var(--btn-bg) !important;
+            color: var(--text-secondary) !important;
             border-radius: 99px !important;
-            padding: 6px 12px !important;
+            padding: 8px 14px !important;
             font-size: 11px !important;
             font-weight: 600 !important;
-            color: var(--text-secondary) !important;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            justify-content: center;
+            gap: 6px;
+            line-height: 1;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
         }
 
-        .base-btn.active {
+        .theme-toggle-btn {
+            width: 32px !important;
+            height: 32px !important;
+            padding: 0 !important;
+            border-radius: 50% !important;
+        }
+
+        .base-btn:hover, .source-methodology-btn:hover {
             background: var(--btn-active-bg) !important;
-            color: var(--btn-active-color) !important;
-            box-shadow: 0 2px 6px var(--glass-shadow) !important;
+            color: var(--text-primary) !important;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px var(--glass-shadow);
         }
 
         .btn-reset {
             color: #0f6d72 !important;
             font-weight: 700 !important;
-            padding: 6px 12px !important;
         }
         .dark-theme .btn-reset {
             color: #2db7ea !important;
         }
 
-        .source-methodology-btn, .mode-switch-btn {
-            border: 1px solid var(--glass-border) !important;
-            background: var(--btn-bg) !important;
-            color: var(--text-secondary) !important;
+        /* Hero switch view button */
+        .mode-switch-btn {
+            background: linear-gradient(135deg, #0f6d72 0%, #158b91 100%) !important;
+            color: #ffffff !important;
+            border: none !important;
             border-radius: 99px !important;
-            padding: 7px 14px !important;
+            padding: 8px 16px !important;
             font-size: 11px !important;
-            font-weight: 600 !important;
+            font-weight: 700 !important;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
             gap: 6px;
             line-height: 1;
             text-decoration: none;
-            transition: all 0.2s ease;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(15, 109, 114, 0.25);
+        }
+        .dark-theme .mode-switch-btn {
+            background: linear-gradient(135deg, #1fa5cc 0%, #2db7ea 100%) !important;
+            box-shadow: 0 4px 12px rgba(45, 183, 234, 0.3);
         }
 
-        .source-methodology-btn:hover, .mode-switch-btn:hover {
-            background: var(--btn-active-bg) !important;
-            color: var(--text-primary) !important;
-            box-shadow: 0 2px 6px var(--glass-shadow);
+        .mode-switch-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(15, 109, 114, 0.35);
+            filter: brightness(1.08);
+        }
+        .dark-theme .mode-switch-btn:hover {
+            box-shadow: 0 6px 16px rgba(45, 183, 234, 0.45);
         }
 
         .margin-legend-labels {
@@ -683,7 +740,7 @@
         }
 
         /* Mobile Drawer & Sheet Layout Responsive Overrides */
-        @media (max-width: 767px) {
+        @media (max-width: 768px) {
             :root {
                 --sidebar-width: 100%;
                 --header-height: auto;
@@ -693,60 +750,92 @@
                 top: 8px !important;
                 left: 8px !important;
                 right: 8px !important;
-                padding: 8px 12px !important;
-                flex-direction: column;
-                gap: 6px !important;
+                padding: 10px 14px !important;
+                display: grid !important;
+                grid-template-columns: 1fr auto !important;
+                grid-template-rows: auto auto !important;
+                gap: 8px 12px !important;
+                align-items: center !important;
                 height: auto !important;
                 border-radius: 12px !important;
             }
 
             .brand {
-                font-size: 13px !important;
-                width: 100%;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
+                grid-column: 1 / 2 !important;
+                grid-row: 1 / 2 !important;
+                font-size: 11px !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 6px !important;
+                justify-content: flex-start !important;
+                width: auto !important;
+                white-space: nowrap !important;
             }
 
             .top-stats {
-                width: 100%;
-                display: flex;
-                justify-content: space-between;
-                gap: 4px !important;
+                grid-column: 1 / 2 !important;
+                grid-row: 2 / 3 !important;
+                width: fit-content !important;
+                display: flex !important;
+                padding: 1px 2px !important;
+                border-radius: 99px !important;
+                background: var(--btn-bg) !important;
+                border: 1px solid var(--glass-border) !important;
+                gap: 0 !important;
             }
 
             .chip {
                 padding: 4px 8px !important;
                 font-size: 9px !important;
-                flex: 1;
-                justify-content: center;
+                border-right: 1px solid var(--glass-border) !important;
+                border-radius: 0 !important;
+                flex: none !important;
+            }
+            
+            .chip:last-child {
+                border-right: none !important;
             }
 
+            /* Enable display: contents so children of .topbar-controls act as grid items directly! */
             .topbar-controls {
-                width: 100%;
-                display: flex;
-                justify-content: space-between;
-                gap: 4px !important;
+                display: contents !important;
             }
 
-            .basemap-bar {
-                padding: 1px !important;
-                flex: 1;
-                justify-content: space-between;
+            .mini-controls {
+                grid-column: 2 / 3 !important;
+                grid-row: 2 / 3 !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 6px !important;
+                justify-self: end !important;
             }
 
-            .base-btn {
-                padding: 4px 8px !important;
-                font-size: 9px !important;
-                flex: 1;
-                justify-content: center;
+            .btn-text {
+                display: none !important; /* Hide long button texts to make elegant circular icon buttons! */
             }
 
-            .source-methodology-btn, .mode-switch-btn {
-                padding: 5px 8px !important;
-                font-size: 9px !important;
-                flex: 1;
-                justify-content: center;
+            .base-btn, .source-methodology-btn {
+                padding: 0 !important;
+                width: 28px !important;
+                height: 28px !important;
+                border-radius: 50% !important;
+                font-size: 10px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                flex-shrink: 0 !important;
+            }
+
+            .mode-switch-btn {
+                grid-column: 2 / 3 !important;
+                grid-row: 1 / 2 !important;
+                justify-self: end !important;
+                padding: 6px 12px !important;
+                font-size: 10px !important;
+                border-radius: 99px !important;
+                line-height: 1 !important;
+                height: auto !important;
+                width: auto !important;
             }
 
             .sidebar {
@@ -755,13 +844,15 @@
                 left: 12px !important;
                 right: 12px !important;
                 width: calc(100% - 24px) !important;
-                height: 280px !important;
+                height: auto !important;
+                max-height: 48vh !important;
+                overflow-y: auto !important;
                 border-radius: 16px !important;
                 padding: 12px !important;
                 box-shadow: 0 -8px 24px var(--glass-shadow) !important;
                 gap: 12px !important;
                 transform: none !important;
-                transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             }
 
             .sidebar-toggle-handle {
@@ -786,7 +877,8 @@
             }
 
             .sidebar-collapsed {
-                height: 32px !important;
+                height: 80px !important;
+                max-height: 80px !important;
                 overflow: hidden !important;
                 padding: 6px 12px !important;
                 transform: none !important;
@@ -797,7 +889,7 @@
                 border-bottom: none !important;
             }
 
-            .sidebar-collapsed > *:not(.sidebar-toggle-handle) {
+            .sidebar-collapsed > *:not(.sidebar-toggle-handle):not(.mobile-tabs) {
                 display: none !important;
             }
 
@@ -824,7 +916,29 @@
                 color: var(--btn-active-color);
                 border-bottom: 2px solid var(--btn-active-color);
             }
+
+            .mobile-only-title {
+                display: block !important;
+                font-family: "Outfit", Inter, sans-serif;
+                font-size: 13px;
+                font-weight: 700;
+                color: var(--text-primary);
+                text-transform: uppercase;
+                margin-top: 8px;
+                margin-bottom: 4px;
+                letter-spacing: 0.05em;
+            }
+
+            .maplibregl-ctrl, .maplibregl-ctrl-group, .mapboxgl-ctrl, .mapboxgl-ctrl-group {
+                display: none !important;
+            }
         }
+
+        /* Desktop Floating Dashboard Card style for the right sidebar */
+        @media (min-width: 769px) {
+            .mobile-only-title {
+                display: none !important;
+            }
 
         /* Desktop Floating Dashboard Card style for the right sidebar */
         @media (min-width: 768px) {
@@ -893,7 +1007,7 @@
         }
 
         /* Desktop specific card layout */
-        @media (min-width: 768px) {
+        @media (min-width: 769px) {
             .precinct-details-panel {
                 position: fixed !important;
                 top: calc(var(--header-height) + 36px) !important;
@@ -904,7 +1018,7 @@
         }
 
         /* Mobile specific bottom sheet layout */
-        @media (max-width: 767px) {
+        @media (max-width: 768px) {
             .precinct-details-panel {
                 position: absolute !important;
                 bottom: 12px !important;
@@ -912,8 +1026,9 @@
                 left: 12px !important;
                 right: 12px !important;
                 width: calc(100% - 24px) !important;
-                height: 280px !important;
-                max-height: 52vh !important;
+                height: auto !important;
+                max-height: 48vh !important;
+                overflow-y: auto !important;
                 border-radius: 16px !important;
                 box-shadow: 0 -8px 24px var(--glass-shadow) !important;
                 z-index: 2000 !important;
@@ -924,6 +1039,16 @@
                 opacity: 0 !important;
                 pointer-events: none !important;
             }
+
+            /* Ensure collapsed filters/results bottom sheet starts partially visible with a handle visible */
+            .sidebar.sidebar-collapsed {
+                transform: none !important;
+            }
+        }
+
+        /* Hide Mapbox/MapLibre controls globally on both desktop and mobile */
+        .maplibregl-ctrl, .maplibregl-ctrl-group, .mapboxgl-ctrl, .mapboxgl-ctrl-group {
+            display: none !important;
         }
     </style>
 </head>
@@ -951,19 +1076,23 @@
             <span class="chip" id="chipRec">-- recintos</span>
         </div>
         <div class="topbar-controls" style="display: flex; align-items: center; gap: 12px;">
-            <div id="basemapBar" class="basemap-bar">
+            <div class="mini-controls">
                 <button class="base-btn btn-reset" id="btnResetView" type="button" title="Restablecer vista nacional y filtros">
                     <i class="fas fa-home"></i>
-                    <span>Restablecer vista</span>
+                    <span class="btn-text">Restablecer vista</span>
                 </button>
-                <span style="width: 1px; height: 16px; background: currentColor; opacity: 0.15; margin: 0 2px;"></span>
-                <button class="base-btn active" data-base="light" type="button">Claro</button>
-                <button class="base-btn" data-base="dark" type="button">Oscuro</button>
+                <button class="base-btn theme-toggle-btn" id="btnThemeToggle" type="button" title="Cambiar tema (Claro/Oscuro)">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button class="source-methodology-btn" id="btnSourceMethodology" type="button" title="Fuente y metodología">
+                    <i class="fas fa-info-circle"></i>
+                    <span class="btn-text">Fuente y metodología</span>
+                </button>
             </div>
-            <button class="source-methodology-btn" id="btnSourceMethodology" type="button">
-                <i class="fas fa-info-circle"></i> Fuente y metodología
-            </button>
-            <a href="index.html" class="mode-switch-btn"><i class="fas fa-map"></i> Ver en 2D</a>
+            <a href="index.html" class="mode-switch-btn" title="Ver en 2D">
+                <i class="fas fa-map"></i>
+                <span class="btn-text">Ver en 2D</span>
+            </a>
         </div>
     </header>
 
@@ -1021,6 +1150,7 @@
                 <button class="mobile-tab-btn active" id="mobileTabBtnFiltersLeft" type="button">Filtros</button>
                 <button class="mobile-tab-btn" id="mobileTabBtnResultsLeft" type="button">Resultados</button>
             </div>
+            <div class="mobile-only-title">OPCIONES DE FILTRO</div>
 
             <div class="panel-block">
                 <div class="panel-label">VUELTA ELECTORAL</div>
@@ -1078,6 +1208,7 @@
                 <button class="mobile-tab-btn" id="mobileTabBtnFiltersRight" type="button">Filtros</button>
                 <button class="mobile-tab-btn active" id="mobileTabBtnResultsRight" type="button">Resultados</button>
             </div>
+            <div class="mobile-only-title">ESTADÍSTICAS Y RESULTADOS</div>
 
             <!-- Vista Predeterminada: Composición General -->
             <div id="sb-right-general" style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
@@ -1102,6 +1233,22 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Mensaje cuando no hay recinto seleccionado en móvil -->
+            <div id="sb-right-placeholder" style="display: none; padding: 32px 16px; text-align: center; color: var(--text-muted); font-size: 13px; flex-direction: column; align-items: center; gap: 12px; justify-content: center; height: 100%; box-sizing: border-box;">
+                <i class="fas fa-map-marker-alt" style="font-size: 28px; color: var(--text-muted); opacity: 0.6;"></i>
+                <span>Selecciona un recinto para ver sus resultados</span>
+            </div>
+
+            <!-- Vista de Detalle de Recinto Seleccionado -->
+            <div id="sb-right-precinct" style="display: none; flex-direction: column; gap: 12px; width: 100%;">
+                <div class="sidebar-right-header" style="margin-bottom: 8px;">
+                    <button class="btn-back" id="btnBackToGeneral" type="button" style="width: 100%; justify-content: center;">
+                        <i class="fas fa-arrow-left"></i> Volver a composición general
+                    </button>
+                </div>
+                <div id="sb-right-precinct-content"></div>
             </div>
 
         </aside>
@@ -1201,7 +1348,7 @@
         }
         var currentMapStyleUrl = initialStyle;
 
-        var isMobile = window.innerWidth < 768;
+        var isMobile = window.innerWidth <= 768;
         var initialZoom = isMobile ? 4.7 : 5.5;
         var initialPitch = isMobile ? 55 : 52; // Tilted proudly to 52 degrees to enhance cylinder perspective
         var initialBearing = isMobile ? 0 : 12; // Rotated by 12 degrees to emphasize perspective depth
@@ -1217,11 +1364,7 @@
             fadeDuration: isLowPerformance ? 0 : 300
         });
 
-        map.addControl(new maplibregl.NavigationControl({
-            showCompass: true,
-            showZoom: true,
-            visualizePitch: true
-        }), 'top-left');
+
 
 
         function getStackedSegments(features) {
@@ -1573,7 +1716,7 @@
             layers: [],
             getTooltip: function (info) {
                 // Suppress hover floating popup on mobile/touch screens or when details panel is active
-                if (window.innerWidth < 768 || (info && info.pointerType === 'touch') || selectedDetailObject !== null) {
+                if (window.innerWidth <= 768 || (info && info.pointerType === 'touch') || selectedDetailObject !== null) {
                     return null;
                 }
 
@@ -1661,7 +1804,7 @@
         }
 
         function getDepartmentFitPadding() {
-            if (window.innerWidth < 768) {
+            if (window.innerWidth <= 768) {
                 return { top: 130, bottom: 220, left: 40, right: 40 };
             }
 
@@ -1717,8 +1860,8 @@
 
         function focusDepartment(depName) {
             var loc = getDepartmentCenterAndZoom(depName);
-            var minZoom = window.innerWidth < 768 ? 6.2 : 6.5;
-            var maxZoom = window.innerWidth < 768 ? 10.0 : 10.5;
+            var minZoom = window.innerWidth <= 768 ? 6.2 : 6.5;
+            var maxZoom = window.innerWidth <= 768 ? 10.0 : 10.5;
 
             if (!loc.bounds) {
                 map.flyTo({
@@ -1769,6 +1912,13 @@
             } else {
                 radius = 120;
                 elevationScale = 0.48;
+            }
+
+            // Adjustments specifically for mobile screens to prevent overcrowding and visual saturation:
+            var isMobileDevice = (window.innerWidth <= 768);
+            if (isMobileDevice) {
+                radius = radius * 0.45; // Reduce radius by 55% to prevent columns from overcrowding and overlapping
+                elevationScale = elevationScale * 0.4; // Scale down height by 60% so they do not block map details
             }
 
             return {
@@ -1913,6 +2063,7 @@
                 radius: visualScale.radius,
                 extruded: true,
                 pickable: true,
+                opacity: (window.innerWidth < 768) ? 0.72 : 0.9,
                 elevationScale: elevationScaleVal,
                 onClick: function (info) {
                     manejarClicColumna(info);
@@ -2013,8 +2164,10 @@
 
             panel.classList.remove('hidden');
 
+            updateSidebarRightState();
+
             // On mobile: programmatically switch active sheet to Resultados tab
-            if (window.innerWidth < 768) {
+            if (window.innerWidth <= 768) {
                 switchMobileTab('results');
                 var sbRight = document.getElementById('sb-right');
                 var sbToggleRight = document.getElementById('sbToggleRight');
@@ -2028,9 +2181,10 @@
 
             var panel = document.getElementById('precinctDetailsPanel');
             var content = document.getElementById('precinctDetailsContent');
-            if (!panel || !content || panel.classList.contains('hidden')) return;
-
-            content.innerHTML = getRecintoTooltipHTML(selectedDetailObject);
+            if (panel && content && !panel.classList.contains('hidden')) {
+                content.innerHTML = getRecintoTooltipHTML(selectedDetailObject);
+            }
+            updateSidebarRightState();
         }
 
         function closePrecinctDetails() {
@@ -2050,8 +2204,32 @@
                 panel.classList.add('hidden');
             }
 
+            updateSidebarRightState();
+
             scheduleDeckLayerUpdate();
             refreshMapAndStats(currentFilteredFeatures);
+        }
+
+        function updateSidebarRightState() {
+            var generalDiv = document.getElementById('sb-right-general');
+            var placeholderDiv = document.getElementById('sb-right-placeholder');
+            var precinctDiv = document.getElementById('sb-right-precinct');
+            var precinctContentDiv = document.getElementById('sb-right-precinct-content');
+
+            if (!generalDiv || !precinctDiv) return;
+
+            if (selectedDetailObject !== null) {
+                generalDiv.style.display = 'none';
+                if (placeholderDiv) placeholderDiv.style.display = 'none';
+                precinctDiv.style.display = 'flex';
+                if (precinctContentDiv) {
+                    precinctContentDiv.innerHTML = getRecintoTooltipHTML(selectedDetailObject);
+                }
+            } else {
+                precinctDiv.style.display = 'none';
+                if (placeholderDiv) placeholderDiv.style.display = 'none';
+                generalDiv.style.display = 'flex';
+            }
         }
 
         // 4. Data processing helpers
@@ -2250,7 +2428,9 @@
                                     content.innerHTML = getRecintoTooltipHTML(f);
                                     panel.classList.remove('hidden');
 
-                                    if (window.innerWidth < 768) {
+                                    updateSidebarRightState();
+
+                                    if (window.innerWidth <= 768) {
                                         switchMobileTab('results');
                                         var sbRight = document.getElementById('sb-right');
                                         var sbToggleRight = document.getElementById('sbToggleRight');
@@ -2624,17 +2804,29 @@
                 if (typeof scheduleLegendUpdate === 'function') scheduleLegendUpdate(currentFilteredFeatures);
             }, 300);
 
-            document.querySelectorAll('.base-btn[data-base]').forEach(function (b) {
-                b.classList.toggle('active', b.dataset.base === themeName);
-            });
+            // Toggle icon inside theme toggle button
+            var themeToggle = document.getElementById('btnThemeToggle');
+            if (themeToggle) {
+                var icon = themeToggle.querySelector('i');
+                if (themeName === 'dark') {
+                    if (icon) icon.className = 'fas fa-sun';
+                    themeToggle.title = 'Cambiar a modo Claro';
+                } else {
+                    if (icon) icon.className = 'fas fa-moon';
+                    themeToggle.title = 'Cambiar a modo Oscuro';
+                }
+            }
         }
 
-        // Basemaps selector in 3D (Refined selector to exclude btnResetView)
-        document.querySelectorAll('.base-btn[data-base]').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                applyElectoralTheme(this.dataset.base);
+        // Single Theme Toggle click listener in 3D
+        var themeToggle = document.getElementById('btnThemeToggle');
+        if (themeToggle) {
+            themeToggle.addEventListener('click', function () {
+                var currentTheme = localStorage.getItem('electoral-map-theme') || 'light';
+                var nextTheme = (currentTheme === 'dark') ? 'light' : 'dark';
+                applyElectoralTheme(nextTheme);
             });
-        });
+        }
 
         // Visualization Mode
         document.querySelectorAll('.color-mode-btn').forEach(function (btn) {
@@ -2659,6 +2851,20 @@
         setupSearch();
         setRound('primera');
         applyElectoralTheme(initialTheme);
+        updateSidebarRightState();
+
+        // Also add window resize listener to dynamically update the display states
+        window.addEventListener('resize', function () {
+            updateSidebarRightState();
+        });
+
+        // Add event listener to back button inside the results panel
+        var btnBackToGeneral = document.getElementById('btnBackToGeneral');
+        if (btnBackToGeneral) {
+            btnBackToGeneral.addEventListener('click', function () {
+                closePrecinctDetails();
+            });
+        }
 
         // Mobile responsive sheet tabs and toggle logic
         function switchMobileTab(tab) {
@@ -2669,22 +2875,42 @@
             var btnFiltersRight = document.getElementById('mobileTabBtnFiltersRight');
             var btnResultsRight = document.getElementById('mobileTabBtnResultsRight');
 
+            if (!sbLeft || !sbRight) return;
+
+            // Determine if the current active panel is collapsed
+            var currentActive = sbLeft.classList.contains('sidebar-mobile-hidden') ? sbRight : sbLeft;
+            var isCollapsed = currentActive.classList.contains('sidebar-collapsed');
+
             if (tab === 'filters') {
                 sbLeft.classList.remove('sidebar-mobile-hidden');
                 sbRight.classList.add('sidebar-mobile-hidden');
                 
+                // Synchronize the collapsed state
+                if (isCollapsed) {
+                    sbLeft.classList.add('sidebar-collapsed');
+                } else {
+                    sbLeft.classList.remove('sidebar-collapsed');
+                }
+                
                 btnFiltersLeft.classList.add('active');
                 btnResultsLeft.classList.remove('active');
-                btnFiltersRight.classList.remove('active');
-                btnResultsRight.classList.add('active');
+                btnFiltersRight.classList.add('active');
+                btnResultsRight.classList.remove('active');
             } else {
                 sbLeft.classList.add('sidebar-mobile-hidden');
                 sbRight.classList.remove('sidebar-mobile-hidden');
 
+                // Synchronize the collapsed state
+                if (isCollapsed) {
+                    sbRight.classList.add('sidebar-collapsed');
+                } else {
+                    sbRight.classList.remove('sidebar-collapsed');
+                }
+
                 btnFiltersLeft.classList.remove('active');
                 btnResultsLeft.classList.add('active');
-                btnFiltersRight.classList.add('active');
-                btnResultsRight.classList.remove('active');
+                btnFiltersRight.classList.remove('active');
+                btnResultsRight.classList.add('active');
             }
         }
 
@@ -2698,7 +2924,11 @@
         tabs.forEach(function(item) {
             var el = document.getElementById(item.id);
             if (el) {
-                el.addEventListener('click', function() {
+                el.addEventListener('click', function(e) {
+                    if (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
                     switchMobileTab(item.tab);
                 });
             }
@@ -2771,7 +3001,7 @@
         });
 
         // Initialize mobile state
-        if (window.innerWidth < 768) {
+        if (window.innerWidth <= 768) {
             var sbLeft = document.getElementById('sb-left');
             var sbRight = document.getElementById('sb-right');
             var sbToggleLeft = document.getElementById('sbToggleLeft');
@@ -2782,6 +3012,37 @@
             if (sbToggleRight) sbToggleRight.setAttribute('aria-expanded', 'false');
             switchMobileTab('filters');
         }
+
+        // Close sidebar on click outside on mobile in 3D view
+        document.addEventListener('click', function(event) {
+            if (window.innerWidth <= 768) {
+                var sbLeft = document.getElementById('sb-left');
+                var sbRight = document.getElementById('sb-right');
+                
+                var clickInsideLeft = sbLeft && sbLeft.contains(event.target);
+                var clickInsideRight = sbRight && sbRight.contains(event.target);
+                
+                var topbar = document.querySelector('.topbar');
+                var clickInsideTopbar = topbar && topbar.contains(event.target);
+                
+                var isToggleClick = event.target.closest('.sidebar-toggle-handle') || 
+                                    event.target.closest('.mobile-tabs') || 
+                                    event.target.closest('.round-btn') || 
+                                    event.target.closest('.base-btn') || 
+                                    event.target.closest('.mode-switch-btn') || 
+                                    event.target.closest('.source-methodology-btn') || 
+                                    event.target.closest('.theme-toggle-btn');
+                
+                if (!clickInsideLeft && !clickInsideRight && !clickInsideTopbar && !isToggleClick) {
+                    if (sbLeft && !sbLeft.classList.contains('sidebar-collapsed')) {
+                        sbLeft.classList.add('sidebar-collapsed');
+                    }
+                    if (sbRight && !sbRight.classList.contains('sidebar-collapsed')) {
+                        sbRight.classList.add('sidebar-collapsed');
+                    }
+                }
+            }
+        });
     </script>
 </body>
 

@@ -918,6 +918,14 @@ body.dark-theme {
   background: rgba(0, 0, 0, 0.3);
   color: #eee;
 }
+.ui-select option {
+  background: #ffffff !important;
+  color: #242424 !important;
+}
+.dark-theme .ui-select option {
+  background: #1c1c1e !important;
+  color: #eeeeee !important;
+}
 .dark-theme .search-input-wrap input {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(0, 0, 0, 0.3);
