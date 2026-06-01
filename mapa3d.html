@@ -1,0 +1,1501 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <!-- MapLibre GL JS Styles & Script -->
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+
+    <!-- Deck.gl Script -->
+    <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
+
+    <link rel="stylesheet" href="css/fontawesome-all.min.css">
+    <link rel="stylesheet" href="css/custom.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <title>Resultados Electorales Bolivia 2025 - 3D</title>
+    <style>
+        .map-wrap {
+            background-color: #121212;
+        }
+
+        /* Custom Deck.gl Tooltip over map */
+        .deck-tooltip {
+            font-family: Inter, sans-serif !important;
+            padding: 0 !important;
+            border-radius: 14px !important;
+            overflow: hidden;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header class="topbar">
+        <div class="brand" style="display: flex; align-items: center; gap: 8px;">
+            Resultados Electorales Bolivia 2025
+            <span class="chip-3d"><i class="fas fa-cube"></i> VISTA 3D</span>
+        </div>
+        <div class="top-stats">
+            <span class="chip chip-green" id="chipPart">-- participación</span>
+            <span class="chip" id="chipVal">-- votos válidos</span>
+            <span class="chip" id="chipRec">-- recintos</span>
+        </div>
+        <div class="topbar-controls" style="display: flex; align-items: center; gap: 12px;">
+            <div id="basemapBar" class="basemap-bar">
+                <button class="base-btn btn-reset" id="btnResetView" type="button" title="Restablecer vista nacional y filtros">
+                    <i class="fas fa-home"></i>
+                </button>
+                <span style="width: 1px; height: 16px; background: currentColor; opacity: 0.15; margin: 0 2px;"></span>
+                <button class="base-btn active" data-base="light" type="button">Claro</button>
+                <button class="base-btn" data-base="dark" type="button">Oscuro</button>
+            </div>
+            <a href="index.html" class="mode-switch-btn"><i class="fas fa-map"></i> Ver en 2D</a>
+        </div>
+    </header>
+
+    <div class="layout">
+        <!-- Panel Izquierdo: Filtros y Búsqueda -->
+        <aside class="sidebar sidebar-left" id="sb-left">
+            <div class="sidebar-toggle-handle" id="sbToggleLeft">
+                <div class="handle-bar"></div>
+                <span class="handle-text">Opciones de Filtro</span>
+            </div>
+            
+            <div class="mobile-tabs" id="mobileTabsLeft">
+                <button class="mobile-tab-btn active" id="mobileTabBtnFiltersLeft" type="button">Filtros</button>
+                <button class="mobile-tab-btn" id="mobileTabBtnResultsLeft" type="button">Resultados</button>
+            </div>
+
+            <div class="panel-block">
+                <div class="panel-label">VUELTA ELECTORAL</div>
+                <div class="segmented segmented-2">
+                    <button class="seg active round-btn" data-round="primera" type="button">Primera vuelta</button>
+                    <button class="seg round-btn" data-round="segunda" type="button">Segunda vuelta</button>
+                </div>
+            </div>
+
+            <div class="panel-block" id="searchBlock">
+                <div class="panel-label">BUSCAR RECINTO</div>
+                <div class="search-box-container">
+                    <div class="search-input-wrap">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="Buscar recinto, municipio..."
+                            autocomplete="off">
+                    </div>
+                    <div class="search-results-dropdown hidden" id="searchResults"></div>
+                </div>
+            </div>
+
+            <div class="panel-block" id="colorByBlock">
+                <div class="panel-label visualization-mode-label">MODO DE VISUALIZACIÓN</div>
+                <div class="segmented segmented-3">
+                    <button class="seg active color-mode-btn" data-mode="winner" type="button">Ganador</button>
+                    <button class="seg color-mode-btn" data-mode="participation" type="button">Participación</button>
+                    <button class="seg color-mode-btn" data-mode="margin" type="button">Margen de victoria</button>
+                </div>
+            </div>
+
+            <div class="panel-block">
+                <div class="panel-label">DEPARTAMENTO</div>
+                <select id="depFilter" class="ui-select">
+                    <option value="Todos">Todos</option>
+                </select>
+            </div>
+
+            <div class="panel-block">
+                <div class="panel-label">FILTRAR POR GANADOR</div>
+                <select id="winnerFilter" class="ui-select">
+                    <option value="Todos">Todos</option>
+                </select>
+            </div>
+        </aside>
+
+        <!-- Panel Derecho: Analíticas, Composición y Detalles Dinámicos -->
+        <aside class="sidebar sidebar-right sidebar-mobile-hidden" id="sb-right">
+            <div class="sidebar-toggle-handle" id="sbToggleRight">
+                <div class="handle-bar"></div>
+                <span class="handle-text">Estadísticas y Resultados</span>
+            </div>
+
+            <div class="mobile-tabs" id="mobileTabsRight">
+                <button class="mobile-tab-btn" id="mobileTabBtnFiltersRight" type="button">Filtros</button>
+                <button class="mobile-tab-btn active" id="mobileTabBtnResultsRight" type="button">Resultados</button>
+            </div>
+
+            <!-- Vista Predeterminada: Composición General -->
+            <div id="sb-right-general" style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+                <div class="panel-block">
+                    <div class="panel-label" id="legendTitle">GANADOR - PRIMERA VUELTA</div>
+                    <div class="legend-box compact">
+                        <div id="legendBar" class="legend-bar"></div>
+                        <div id="legendSummary"></div>
+                    </div>
+                </div>
+
+                <div class="panel-block hidden" id="secondRoundWinsBlock">
+                    <div class="panel-label">RECINTOS GANADOS</div>
+                    <div class="wins-grid">
+                        <div class="win-card">
+                            <div class="win-value pdc-text" id="winsPdc">0</div>
+                            <div class="win-label">PDC</div>
+                        </div>
+                        <div class="win-card">
+                            <div class="win-value libre-text" id="winsLibre">0</div>
+                            <div class="win-label">LIBRE</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vista Dinámica: Detalles de un Recinto Específico -->
+            <div id="sb-right-details" class="hidden" style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+                <div class="sidebar-right-header">
+                    <button class="btn-back" id="btnBackToGeneral" type="button">
+                        <i class="fas fa-arrow-left"></i> Volver al General
+                    </button>
+                </div>
+                <div id="precinctDetailsContent"></div>
+            </div>
+        </aside>
+
+        <main class="map-wrap">
+            <div id="map" style="width:100%; height:100%;"></div>
+        </main>
+    </div>
+
+    <!-- Data source -->
+    <script src="data/recintos_1.js"></script>
+    <script src="js/app/election-constants.js"></script>
+    <script src="js/app/election-utils.js"></script>
+
+    <script>
+        var ELECTION = window.ElectionConstants;
+        var ElectionUtils = window.ElectionUtils;
+        var currentRound = 'primera';
+        var currentVisualizationMode = 'winner';
+        var allFeatures = json_recintos_1.features.slice();
+        var currentFilteredFeatures = [];
+        var selectedSearchFeature = null;
+        var OFFICIAL_SECOND_ROUND = ELECTION.OFFICIAL_SECOND_ROUND;
+        var VISUALIZATION_TEXT = {
+            modeTitle: 'MODO DE VISUALIZACIÓN',
+            modes: {
+                winner: 'Ganador',
+                participation: 'Participación',
+                margin: 'Margen de victoria'
+            },
+            metricPrefix: 'Visualización',
+            legendPrefix: {
+                winner: 'GANADOR',
+                participation: 'PARTICIPACIÓN',
+                margin: 'MARGEN DE VICTORIA'
+            }
+        };
+
+        // UI elements references
+        var depFilter = document.getElementById('depFilter');
+        var winnerFilter = document.getElementById('winnerFilter');
+        var chipPart = document.getElementById('chipPart');
+        var chipVal = document.getElementById('chipVal');
+        var chipRec = document.getElementById('chipRec');
+        var roundBtns = document.querySelectorAll('.round-btn');
+        var legendSummary = document.getElementById('legendSummary');
+        var legendBar = document.getElementById('legendBar');
+        var legendTitle = document.getElementById('legendTitle');
+        var colorByBlock = document.getElementById('colorByBlock');
+        var secondRoundWinsBlock = document.getElementById('secondRoundWinsBlock');
+        var winsPdc = document.getElementById('winsPdc');
+        var winsLibre = document.getElementById('winsLibre');
+
+        // 1. Initialize MapLibre Map
+        var mapStyleDark = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+        var mapStyleLight = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+        var mapStyleOsm = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+
+        var isMobile = window.innerWidth < 768;
+        var initialZoom = isMobile ? 4.7 : 5.5;
+        var initialPitch = isMobile ? 55 : 52; // Tilted proudly to 52 degrees to enhance cylinder perspective
+        var initialBearing = isMobile ? 0 : 12; // Rotated by 12 degrees to emphasize perspective depth
+
+        var map = new maplibregl.Map({
+            container: 'map',
+            style: mapStyleLight, // default light theme
+            center: [-63.5, -16.5], // centered on Bolivia
+            zoom: isMobile ? initialZoom : 4.8, // starts wider on desktop to fly in
+            pitch: isMobile ? initialPitch : 30, // starts flatter
+            bearing: isMobile ? initialBearing : -20, // starts rotated opposite
+            antialias: true
+        });
+
+        map.addControl(new maplibregl.NavigationControl({
+            showCompass: true,
+            showZoom: true,
+            visualizePitch: true
+        }), 'top-left');
+
+
+        function getStackedSegments(features) {
+            var segments = [];
+            var isSecondRound = (currentRound === 'segunda');
+            var roundFields = ELECTION.ROUND_FIELDS[currentRound];
+
+            var colorByParty = ELECTION.PARTY_COLORS_RGB;
+
+            for (var i = 0; i < features.length; i++) {
+                var f = features[i];
+                var lon = Number(f.properties.lon);
+                var lat = Number(f.properties.lat);
+                if (isNaN(lon) || isNaN(lat)) {
+                    lon = f.geometry.coordinates[0];
+                    lat = f.geometry.coordinates[1];
+                }
+
+                var hab = Number(f.properties[roundFields.habilitados]) || 0;
+                var emi = Number(f.properties[roundFields.emitidos]) || 0;
+                var abs = Math.max(0, hab - emi);
+                var bla = Number(f.properties[roundFields.blancos]) || 0;
+                var nul = Number(f.properties[roundFields.nulos]) || 0;
+
+                var currentBase = 0;
+
+                if (isSecondRound) {
+                    var pdc = getVotesForParty(f, 'PDC');
+                    var libre = getVotesForParty(f, 'LIBRE');
+
+                    // 1. PDC Segment
+                    if (pdc > 0) {
+                        segments.push({
+                            pos: [lon, lat, currentBase],
+                            height: pdc,
+                            color: colorByParty['PDC'],
+                            feature: f,
+                            type: 'PDC',
+                            votes: pdc
+                        });
+                        currentBase += pdc;
+                    }
+
+                    // 2. LIBRE Segment
+                    if (libre > 0) {
+                        segments.push({
+                            pos: [lon, lat, currentBase],
+                            height: libre,
+                            color: colorByParty['LIBRE'],
+                            feature: f,
+                            type: 'LIBRE',
+                            votes: libre
+                        });
+                        currentBase += libre;
+                    }
+                } else {
+                    var parties = ELECTION.FIRST_ROUND_PARTIES;
+                    for (var p = 0; p < parties.length; p++) {
+                        var partyKey = parties[p];
+                        var votes = getVotesForParty(f, partyKey);
+                        if (votes > 0) {
+                            segments.push({
+                                pos: [lon, lat, currentBase],
+                                height: votes,
+                                color: colorByParty[partyKey] || [154, 177, 181],
+                                feature: f,
+                                type: partyKey,
+                                votes: votes
+                            });
+                            currentBase += votes;
+                        }
+                    }
+                }
+
+                // 3. Blanco Segment
+                if (bla > 0) {
+                    segments.push({
+                        pos: [lon, lat, currentBase],
+                        height: bla,
+                        color: colorByParty['BLANCO'],
+                        feature: f,
+                        type: 'Blancos',
+                        votes: bla
+                    });
+                    currentBase += bla;
+                }
+
+                // 4. Nulo Segment
+                if (nul > 0) {
+                    segments.push({
+                        pos: [lon, lat, currentBase],
+                        height: nul,
+                        color: colorByParty['NULO'],
+                        feature: f,
+                        type: 'Nulos',
+                        votes: nul
+                    });
+                    currentBase += nul;
+                }
+
+                // 5. Abstención Segment (No votaron)
+                if (abs > 0) {
+                    segments.push({
+                        pos: [lon, lat, currentBase],
+                        height: abs,
+                        color: colorByParty['ABS'],
+                        feature: f,
+                        type: 'No Votaron',
+                        votes: abs
+                    });
+                    currentBase += abs;
+                }
+            }
+
+            return segments;
+        }
+
+        // 2. Shared HTML content builder for tooltips (desktop floating & mobile modal anchor)
+        function getRecintoTooltipHTML(obj) {
+            var d, segmentHTML = '';
+            if (obj.feature) {
+                d = obj.feature;
+                var hab = currentRound === 'segunda' ? (Number(d.properties.hab_sv) || 0) : (Number(d.properties.hab) || 0);
+                var segmentPct = hab ? (obj.votes / hab) * 100 : 0;
+                segmentHTML =
+                    '<div style="margin-top: 8px; margin-bottom: 8px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px dashed rgba(255,255,255,0.15);">' +
+                    '<div style="font-size: 10px; font-weight: 700; color: #8a8a8a; text-transform: uppercase;">Segmento seleccionado</div>' +
+                    '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">' +
+                    '<span style="font-weight: 700; font-size: 12px; color: #fff;">' + obj.type + '</span>' +
+                    '<span style="font-weight: 700; font-size: 14px; color: #fff;">' + segmentPct.toFixed(1) + '%</span>' +
+                    '<span style="color: #aaa; font-size: 11px;">' + formatNum(obj.votes) + ' votos</span>' +
+                    '</div>' +
+                    '</div>';
+            } else {
+                d = obj;
+            }
+
+            var recinto = d.properties.rec || 'Recinto';
+            var subtitle = (d.properties.mun || '-') + ' · ' + (d.properties.dep || '-') + ' · Circ. ' + (d.properties.circ || '-');
+
+            var isSecondRound = (currentRound === 'segunda');
+            var parties = isSecondRound
+                ? ELECTION.SECOND_ROUND_PARTIES
+                : ELECTION.FIRST_ROUND_PARTIES;
+
+            var colorByParty = ELECTION.PARTY_COLORS_HEX;
+
+            var partyData = [];
+            var totalPartyVotes = 0;
+            parties.forEach(function(p) {
+                var votes = getVotesForParty(d, p);
+                totalPartyVotes += votes;
+                partyData.push({ key: p, votes: votes });
+            });
+
+            partyData.forEach(function(p) {
+                p.pct = totalPartyVotes ? (p.votes / totalPartyVotes) * 100 : 0;
+            });
+
+            partyData.sort(function(a, b) {
+                return b.votes - a.votes;
+            });
+
+            if (!isSecondRound) {
+                var activePartyData = partyData.filter(function(p) {
+                    return p.votes > 0;
+                });
+                if (activePartyData.length > 0) {
+                    partyData = activePartyData;
+                }
+            }
+
+            var winner = getWinnerForFeature(d);
+            if (!winner && partyData[0]) {
+                winner = partyData[0].key;
+            }
+            if (!winner) winner = 'PDC';
+
+            var winnerData = partyData.find(function(p) {
+                return p.key === winner;
+            });
+            var winnerPct = winnerData ? winnerData.pct : 0;
+            var winnerColor = colorByParty[winner] || '#9ab1b5';
+            var activeVisualizationMetric = getActiveVisualizationMetric(d);
+            var activeVisualizationHTML =
+                '<div style="margin-top: 8px; padding: 7px 9px; border-radius: 8px; background: rgba(15,109,114,0.08); display: flex; justify-content: space-between; gap: 8px;">' +
+                '<span style="font-size: 11px; color: #8a8a8a;">' + activeVisualizationMetric.label + '</span>' +
+                '<strong style="font-size: 12px; color: #0f6d72;">' + activeVisualizationMetric.value + '</strong>' +
+                '</div>';
+
+            var hab = isSecondRound ? (Number(d.properties.hab_sv) || 0) : (Number(d.properties.hab) || 0);
+            var emi = isSecondRound ? (Number(d.properties.emi_sv) || 0) : (Number(d.properties.emi) || 0);
+            var par = ElectionUtils.getParticipation(d, currentRound);
+
+            var candidatesHTML = '';
+            var cands = d.properties.cand_json;
+            if (cands) {
+                if (typeof cands === 'string') {
+                    try { cands = JSON.parse(cands); } catch (e) { cands = null; }
+                }
+                if (Array.isArray(cands) && cands.length > 0) {
+                    candidatesHTML += '<div class="popup-candidates-title">Candidatos Locales</div>';
+                    candidatesHTML += '<div class="popup-candidates-list">';
+
+                    cands.forEach(function (cand) {
+                        var partyColor = colorByParty[cand.p] || '#9ab1b5';
+                        var badge = cand.w ? '<span class="popup-cand-badge">Electo</span>' : '';
+                        var details = cand.p + ' · ' + (cand.ca || 'Candidato') + (cand.e ? (' · ' + cand.e + ' años') : '');
+                        candidatesHTML +=
+                            '<div class="popup-candidate-item">' +
+                            '<div class="popup-cand-party-stripe" style="background:' + partyColor + '"></div>' +
+                            '<div class="popup-cand-info">' +
+                            '<div class="popup-cand-name">' + cand.n + '</div>' +
+                            '<div class="popup-cand-details">' + details + '</div>' +
+                            '</div>' +
+                            badge +
+                            '</div>';
+                    });
+                    candidatesHTML += '</div>';
+                }
+            }
+
+            var miniBarHTML = '<div class="popup-mini-bar">';
+            partyData.forEach(function(p) {
+                var color = colorByParty[p.key] || '#9ab1b5';
+                miniBarHTML += '<span class="popup-segment" style="background:' + color + '; width:' + p.pct.toFixed(3) + '%"></span>';
+            });
+            miniBarHTML += '</div>';
+
+            var partyRowsHTML = '';
+            partyData.forEach(function(p) {
+                var color = colorByParty[p.key] || '#9ab1b5';
+                partyRowsHTML += 
+                    '<div class="popup-party-row">' +
+                    '<span class="popup-dot" style="background:' + color + '"></span>' +
+                    '<span class="popup-party">' + p.key + '</span>' +
+                    '<span class="popup-pct">' + p.pct.toFixed(1) + '%</span>' +
+                    '<span class="popup-votes">' + formatNum(p.votes) + '</span>' +
+                    '</div>';
+            });
+
+            var innerHTML =
+                '<div class="popup-card" style="width:280px;">' +
+                '<div class="popup-title">' + recinto + '</div>' +
+                '<div class="popup-subtitle">' + subtitle + '</div>' +
+
+                segmentHTML +
+
+                '<div class="popup-winner">' +
+                '<span class="popup-dot" style="background:' + winnerColor + '"></span>' +
+                '<span class="popup-winner-name">' + winner + '</span>' +
+                '<span class="popup-winner-pct">' + winnerPct.toFixed(1) + '%</span>' +
+                '</div>' +
+
+                activeVisualizationHTML +
+
+                '<div class="popup-party-box">' +
+                miniBarHTML +
+                partyRowsHTML +
+                '</div>' +
+
+                '<div class="popup-metrics">' +
+                '<div><strong>' + formatNum(hab) + '</strong><span>habilitados</span></div>' +
+                '<div><strong>' + formatNum(emi) + '</strong><span>emitidos</span></div>' +
+                '<div><strong>' + par.toFixed(1) + '%</strong><span>participación</span></div>' +
+                '</div>' +
+                candidatesHTML +
+                '</div>';
+
+            return innerHTML;
+        }
+
+        function getRecintoHoverTooltipHTML(obj) {
+            var feature = obj.feature || obj;
+            var recinto = feature.properties.rec || 'Recinto';
+            var mun = feature.properties.mun || '-';
+            var dep = feature.properties.dep || '-';
+            
+            var isSecondRound = (currentRound === 'segunda');
+            var parties = isSecondRound
+                ? ELECTION.SECOND_ROUND_PARTIES
+                : ELECTION.FIRST_ROUND_PARTIES;
+
+            var colorByParty = ELECTION.PARTY_COLORS_HEX;
+
+            var partyData = [];
+            var totalPartyVotes = 0;
+            parties.forEach(function(p) {
+                var votes = getVotesForParty(feature, p);
+                totalPartyVotes += votes;
+                partyData.push({ key: p, votes: votes });
+            });
+
+            partyData.forEach(function(p) {
+                p.pct = totalPartyVotes ? (p.votes / totalPartyVotes) * 100 : 0;
+            });
+
+            partyData.sort(function(a, b) {
+                return b.votes - a.votes;
+            });
+
+            var winner = getWinnerForFeature(feature);
+            if (!winner && partyData[0]) {
+                winner = partyData[0].key;
+            }
+            if (!winner) winner = 'PDC';
+
+            var winnerData = partyData.find(function(p) {
+                return p.key === winner;
+            });
+            var winnerPct = winnerData ? winnerData.pct : 0;
+            var winnerColor = colorByParty[winner] || '#9ab1b5';
+            var activeVisualizationMetric = getActiveVisualizationMetric(feature);
+            
+            var segmentHighlight = '';
+            var isDark = document.body.classList.contains('dark-theme');
+            var textColor = isDark ? '#fff' : '#111';
+            var subColor = isDark ? '#aaa' : '#666';
+            var activeSegNameColor = isDark ? '#fff' : '#2a2a2a';
+            
+            if (obj.feature) {
+                var hab = isSecondRound ? (Number(feature.properties.hab_sv) || 0) : (Number(feature.properties.hab) || 0);
+                segmentHighlight = 
+                    '<div style="font-size: 11px; margin-top: 4px; color: ' + subColor + ';">' +
+                        'Segmento apuntado: <strong style="color:' + activeSegNameColor + ';">' + obj.type + '</strong> (' + (hab ? ((obj.votes / hab) * 100).toFixed(1) : 0) + '%)' +
+                    '</div>';
+            }
+
+            var html = 
+                '<div style="padding: 10px 12px; font-family:\'Outfit\', Inter, sans-serif; min-width: 190px; box-sizing: border-box;">' +
+                    '<div style="font-weight: 700; font-size: 13px; color: ' + textColor + '; line-height: 1.2;">' + recinto + '</div>' +
+                    '<div style="font-size: 11px; color: ' + subColor + '; margin-top: 2px;">' + mun + ' · ' + dep + '</div>' +
+                    '<div style="font-size: 11px; color: ' + subColor + '; margin-top: 6px; display:flex; justify-content:space-between; gap:8px;">' +
+                        '<span>' + activeVisualizationMetric.label + '</span>' +
+                        '<strong style="color:#0f6d72;">' + activeVisualizationMetric.value + '</strong>' +
+                    '</div>' +
+                    
+                    '<div style="display: flex; align-items: center; gap: 6px; margin-top: 8px;">' +
+                        '<span style="display:inline-block; width: 8px; height: 8px; border-radius:50%; background:' + winnerColor + ';"></span>' +
+                        '<span style="font-weight: 700; font-size: 12px; color: ' + textColor + ';">' + winner + '</span>' +
+                        '<span style="font-size: 12px; font-weight: 600; color:' + winnerColor + ';">' + winnerPct.toFixed(1) + '%</span>' +
+                    '</div>' +
+                    
+                    segmentHighlight +
+                    
+                    '<div style="font-size: 9px; font-weight: 700; color: #0f6d72; text-transform: uppercase; margin-top: 8px; letter-spacing: 0.05em; display: flex; align-items: center; gap: 4px;">' +
+                        '<span>🔍</span> Haz clic para ver detalles' +
+                    '</div>' +
+                '</div>';
+                
+            return html;
+        }
+
+        // 2. Setup Deck.gl MapboxOverlay
+        var deckOverlay = new deck.MapboxOverlay({
+            interleaved: true,
+            layers: [],
+            getTooltip: function (info) {
+                // Suppress hover floating popup on mobile/touch screens
+                if (window.innerWidth < 768 || (info && info.pointerType === 'touch')) {
+                    return null;
+                }
+
+                var obj = info.object;
+                if (!obj) return null;
+
+                var innerHTML = getRecintoHoverTooltipHTML(obj);
+
+                return {
+                    html: innerHTML,
+                    style: {
+                        backgroundColor: document.body.classList.contains('dark-theme') ? '#1c1c1c' : '#ffffff',
+                        color: document.body.classList.contains('dark-theme') ? '#e0e0e0' : '#2a2a2a',
+                        borderRadius: '14px',
+                        border: '1px solid ' + (document.body.classList.contains('dark-theme') ? '#333' : '#dedede'),
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                        padding: '0px',
+                        zIndex: '2000'
+                    }
+                };
+            }
+        });
+
+        map.on('load', function () {
+            map.addControl(deckOverlay);
+            updateDeckLayers();
+
+            if (!isMobile) {
+                // Smooth opening WebGL fly-in intro animation!
+                setTimeout(function () {
+                    map.flyTo({
+                        center: [-63.5, -16.5],
+                        zoom: initialZoom,
+                        pitch: initialPitch,
+                        bearing: initialBearing,
+                        essential: true,
+                        duration: 2500
+                    });
+                }, 300);
+            }
+        });
+
+        // 3. Helper Functions for Filtering and Camera Animation
+        function isFeatureSelected(feature) {
+            var dep = depFilter.value;
+            var matchesDep = (dep === 'Todos' || feature.properties.dep === dep);
+
+            if (selectedSearchFeature) {
+                var isSearched = (feature.properties.rec === selectedSearchFeature.properties.rec &&
+                    feature.properties.mun === selectedSearchFeature.properties.mun);
+                return isSearched;
+            }
+
+            return matchesDep;
+        }
+
+        function getDepartmentCenterAndZoom(depName) {
+            var features = allFeatures.filter(function (f) {
+                return f.properties.dep === depName;
+            });
+            if (features.length === 0) return { center: [-63.5, -16.5], zoom: 5.5 };
+
+            var minLon = 180, maxLon = -180, minLat = 90, maxLat = -90;
+            features.forEach(function (f) {
+                var lon = Number(f.properties.lon);
+                var lat = Number(f.properties.lat);
+                if (isNaN(lon) || isNaN(lat)) {
+                    if (f.geometry && f.geometry.coordinates) {
+                        lon = f.geometry.coordinates[0];
+                        lat = f.geometry.coordinates[1];
+                    }
+                }
+                if (lon && lat && !isNaN(lon) && !isNaN(lat)) {
+                    if (lon < minLon) minLon = lon;
+                    if (lon > maxLon) maxLon = lon;
+                    if (lat < minLat) minLat = lat;
+                    if (lat > maxLat) maxLat = lat;
+                }
+            });
+
+            var centerLon = (minLon + maxLon) / 2;
+            var centerLat = (minLat + maxLat) / 2;
+
+            var zoomMap = {
+                'La Paz': 7.2,
+                'Santa Cruz': 6.8,
+                'Cochabamba': 8.0,
+                'Oruro': 8.0,
+                'Potosí': 7.5,
+                'Tarija': 8.5,
+                'Chuquisaca': 8.0,
+                'Beni': 7.0,
+                'Pando': 8.2
+            };
+
+            var zoom = zoomMap[depName] || 7.5;
+            return { center: [centerLon, centerLat], zoom: zoom };
+        }
+
+        function getActiveVisualizationMode() {
+            return currentVisualizationMode;
+        }
+
+        function applyVisualizationTextLabels() {
+            document.querySelectorAll('.visualization-mode-label').forEach(function (label) {
+                label.textContent = VISUALIZATION_TEXT.modeTitle;
+            });
+
+            document.querySelector('.color-mode-btn[data-mode="winner"]').textContent = VISUALIZATION_TEXT.modes.winner;
+            document.querySelector('.color-mode-btn[data-mode="participation"]').textContent = VISUALIZATION_TEXT.modes.participation;
+            document.querySelector('.color-mode-btn[data-mode="margin"]').textContent = VISUALIZATION_TEXT.modes.margin;
+        }
+
+        function getActiveVisualizationMetric(feature) {
+            var activeVisualizationMode = getActiveVisualizationMode();
+
+            if (activeVisualizationMode === 'participation') {
+                return {
+                    label: VISUALIZATION_TEXT.metricPrefix + ': ' + VISUALIZATION_TEXT.modes.participation.toLowerCase(),
+                    value: ElectionUtils.getParticipation(feature, currentRound).toFixed(1) + '%'
+                };
+            }
+
+            if (activeVisualizationMode === 'margin') {
+                return {
+                    label: VISUALIZATION_TEXT.metricPrefix + ': ' + VISUALIZATION_TEXT.modes.margin.toLowerCase(),
+                    value: getMarginOfVictory(feature).toFixed(1) + ' pts'
+                };
+            }
+
+            return {
+                label: VISUALIZATION_TEXT.metricPrefix + ': ' + VISUALIZATION_TEXT.modes.winner.toLowerCase(),
+                value: getWinnerForFeature(feature) || '-'
+            };
+        }
+
+        function getVisualizationLegendTitle(mode) {
+            var roundLabel = currentRound === 'segunda' ? 'SEGUNDA VUELTA' : 'PRIMERA VUELTA';
+            return VISUALIZATION_TEXT.legendPrefix[mode] + ' - ' + roundLabel;
+        }
+
+        // 4. Deck.gl Layer Builder
+        function updateDeckLayers() {
+            var dataFeed;
+            var elevationScaleVal = 0.75;
+            var activeVisualizationMode = getActiveVisualizationMode();
+
+            // Cache values outside the hot loop to completely avoid slow DOM queries inside getFillColor
+            var currentDepFilterVal = depFilter.value;
+            var searchFeature = selectedSearchFeature;
+            var hasActiveFocus = (currentDepFilterVal !== 'Todos' || searchFeature !== null);
+
+            var winner = winnerFilter.value;
+            var filteredByWinner = allFeatures.filter(function (f) {
+                var featureWinner = getWinnerForFeature(f);
+                return winner === 'Todos' || featureWinner === winner;
+            });
+
+            if (activeVisualizationMode === 'winner') {
+                dataFeed = getStackedSegments(filteredByWinner);
+            } else {
+                dataFeed = filteredByWinner;
+            }
+
+            var columnLayer = new deck.ColumnLayer({
+                id: 'column-layer',
+                data: dataFeed,
+                diskResolution: 8, // Optimized from 12 to 8 (reduces geometry complexities by 33% with identical visual fidelity)
+                radius: 180, // radius of cylinders in meters
+                extruded: true,
+                pickable: true,
+                elevationScale: elevationScaleVal,
+                onClick: function (info) {
+                    manejarClicColumna(info);
+                },
+                getPosition: function (d) {
+                    if (activeVisualizationMode === 'winner') {
+                        return [d.pos[0], d.pos[1], d.pos[2] * elevationScaleVal];
+                    }
+                    var lon = Number(d.properties.lon);
+                    var lat = Number(d.properties.lat);
+                    if (isNaN(lon) || isNaN(lat)) {
+                        lon = d.geometry.coordinates[0];
+                        lat = d.geometry.coordinates[1];
+                    }
+                    return [lon, lat, 0];
+                },
+                getFillColor: function (d) {
+                    var feature = d.feature || d;
+                    
+                    // Highly optimized constant-time filter check using local variables instead of DOM queries
+                    var matchesDep = (currentDepFilterVal === 'Todos' || feature.properties.dep === currentDepFilterVal);
+                    var selected;
+                    if (searchFeature) {
+                        selected = (feature.properties.rec === searchFeature.properties.rec &&
+                                    feature.properties.mun === searchFeature.properties.mun);
+                    } else {
+                        selected = matchesDep;
+                    }
+
+                    // 1. Ghost Mode / Soft Filtering (CRITICAL CONSTRAINT!)
+                    if (hasActiveFocus && !selected) {
+                        var isDark = document.body.classList.contains('dark-theme');
+                        var fadedRgb = isDark ? [45, 45, 45] : [210, 210, 210];
+                        return [fadedRgb[0], fadedRgb[1], fadedRgb[2], 25]; // soft ghost cylinder
+                    }
+
+                    // 2. Base Color Extraction
+                    var baseColor;
+                    if (activeVisualizationMode === 'winner') {
+                        var winner = getWinnerForFeature(feature);
+                        var colorByParty = ELECTION.PARTY_COLORS_RGB;
+                        baseColor = currentRound === 'segunda'
+                            ? (colorByParty[String(winner)] || [154, 177, 181])
+                            : d.color;
+                    } else {
+                        var winner = getWinnerForFeature(feature);
+                        var colorByParty = ELECTION.PARTY_COLORS_RGB;
+
+                        if (activeVisualizationMode === 'participation') {
+                            var par = ElectionUtils.getParticipation(feature, currentRound);
+
+                            var colStr = getParticipationColor(par);
+                            var rgb = colStr.match(/\d+/g).map(Number);
+                            baseColor = [rgb[0], rgb[1], rgb[2]];
+                        } else if (activeVisualizationMode === 'margin') {
+                            baseColor = getMarginToneColor(feature, winner, colorByParty);
+                        } else {
+                            baseColor = colorByParty[String(winner)] || [154, 177, 181];
+                        }
+                    }
+
+                    // 3. Margin of Victory Intensity Mapping
+                    var alpha = 220;
+
+                    if (activeVisualizationMode === 'margin') {
+                        var winner = getWinnerForFeature(feature);
+                        var colorByParty = ELECTION.PARTY_COLORS_RGB;
+                        baseColor = getMarginToneColor(feature, winner, colorByParty);
+                        alpha = getMarginToneAlpha(feature);
+                    }
+
+                    if (activeVisualizationMode === 'winner' && d.type === 'No Votaron') {
+                        alpha = 40;
+                    }
+                    return [baseColor[0], baseColor[1], baseColor[2], alpha];
+                },
+                getElevation: function (d) {
+                    if (activeVisualizationMode === 'winner') {
+                        return d.height;
+                    }
+                    return getValidVotes(d);
+                },
+                updateTriggers: {
+                    // Refined triggers to avoid recalculating static attributes (only recompute when strictly necessary)
+                    getFillColor: [activeVisualizationMode, currentRound, currentDepFilterVal, searchFeature],
+                    getElevation: [activeVisualizationMode, currentRound],
+                    getPosition: [activeVisualizationMode]
+                }
+            });
+
+            deckOverlay.setProps({
+                layers: [columnLayer]
+            });
+        }
+
+        function manejarClicColumna(info) {
+            var obj = info.object;
+            var generalDiv = document.getElementById('sb-right-general');
+            var detailsDiv = document.getElementById('sb-right-details');
+            var content = document.getElementById('precinctDetailsContent');
+
+            if (!obj || !generalDiv || !detailsDiv || !content) return;
+
+            var innerHTML = getRecintoTooltipHTML(obj);
+            content.innerHTML = innerHTML;
+
+            generalDiv.classList.add('hidden');
+            detailsDiv.classList.remove('hidden');
+
+            // On mobile: programmatically switch active sheet to Resultados tab
+            if (window.innerWidth < 768) {
+                switchMobileTab('results');
+                var sbRight = document.getElementById('sb-right');
+                if (sbRight) sbRight.classList.remove('sidebar-collapsed');
+            }
+        }
+
+        // 4. Data processing helpers
+        function formatNum(n) {
+            return Number(n || 0).toLocaleString('es-BO');
+        }
+
+        function isNationalView() {
+            return depFilter.value === 'Todos' && winnerFilter.value === 'Todos';
+        }
+
+        function getPrecinctMargin(feature) {
+            var pdc = getVotesForParty(feature, 'PDC');
+            var libre = getVotesForParty(feature, 'LIBRE');
+            var total = pdc + libre;
+            if (total === 0) return 0;
+            return Math.abs(pdc - libre) / total;
+        }
+
+        function getWinnerForFeature(feature) {
+            return ElectionUtils.getWinnerForFeature(feature, currentRound);
+        }
+
+        function getVotesForParty(feature, partyKey) {
+            return ElectionUtils.getVotesForParty(feature, partyKey, currentRound);
+        }
+
+        function getValidVotes(feature) {
+            return ElectionUtils.getValidVotes(feature, currentRound);
+        }
+
+        function getParticipationColor(pct) {
+            if (pct <= 65) return '#e1524e';
+            if (pct >= 90) return '#0f6d72';
+            var ratio = (pct - 65) / (90 - 65);
+            if (ratio < 0.5) {
+                var rRatio = ratio * 2;
+                var r = Math.round(225 + (243 - 225) * rRatio);
+                var g = Math.round(82 + (179 - 82) * rRatio);
+                var b = Math.round(78 + (71 - 78) * rRatio);
+                return 'rgb(' + r + ',' + g + ',' + b + ')';
+            } else {
+                var tRatio = (ratio - 0.5) * 2;
+                var r = Math.round(243 + (15 - 243) * tRatio);
+                var g = Math.round(179 + (109 - 179) * tRatio);
+                var b = Math.round(71 + (114 - 71) * tRatio);
+                return 'rgb(' + r + ',' + g + ',' + b + ')';
+            }
+        }
+
+        function getMarginToneColor(feature, winner, colorByParty) {
+            var partyColor = colorByParty[String(winner)] || [154, 177, 181];
+            var ratio = getMarginToneRatio(feature);
+            var paleColor = [
+                Math.round(255 + (partyColor[0] - 255) * 0.16),
+                Math.round(255 + (partyColor[1] - 255) * 0.16),
+                Math.round(255 + (partyColor[2] - 255) * 0.16)
+            ];
+
+            return [
+                Math.round(paleColor[0] + (partyColor[0] - paleColor[0]) * ratio),
+                Math.round(paleColor[1] + (partyColor[1] - paleColor[1]) * ratio),
+                Math.round(paleColor[2] + (partyColor[2] - paleColor[2]) * ratio)
+            ];
+        }
+
+        function getMarginToneAlpha(feature) {
+            var ratio = getMarginToneRatio(feature);
+            return Math.round(90 + 145 * ratio);
+        }
+
+        function getMarginToneRatio(feature) {
+            var margin = getMarginOfVictory(feature);
+            return Math.pow(Math.min(margin / 35.0, 1.0), 1.25);
+        }
+
+        function getMarginOfVictory(feature) {
+            return ElectionUtils.getMarginOfVictory(feature, currentRound);
+        }
+
+        // 5. Autocomplete Search Setup
+        function setupSearch() {
+            var searchInput = document.getElementById('searchInput');
+            var searchResults = document.getElementById('searchResults');
+
+            if (!searchInput || !searchResults) return;
+
+            searchInput.addEventListener('input', function () {
+                var val = this.value.trim().toLowerCase();
+                if (val.length < 2) {
+                    if (selectedSearchFeature !== null) {
+                        selectedSearchFeature = null;
+                        updateDeckLayers();
+                    }
+                    searchResults.innerHTML = '';
+                    searchResults.classList.add('hidden');
+                    return;
+                }
+
+                var matches = [];
+                for (var i = 0; i < allFeatures.length; i++) {
+                    var f = allFeatures[i];
+                    var rec = (f.properties.rec || '').toLowerCase();
+                    var mun = (f.properties.mun || '').toLowerCase();
+                    var dep = (f.properties.dep || '').toLowerCase();
+
+                    if (rec.indexOf(val) >= 0 || mun.indexOf(val) >= 0 || dep.indexOf(val) >= 0) {
+                        matches.push(f);
+                        if (matches.length >= 10) break;
+                    }
+                }
+
+                if (matches.length === 0) {
+                    searchResults.innerHTML = '<div class="search-result-item" style="cursor:default;color:#888;">No se encontraron resultados</div>';
+                    searchResults.classList.remove('hidden');
+                    return;
+                }
+
+                searchResults.innerHTML = matches.map(function (f, idx) {
+                    var name = f.properties.rec || 'Recinto sin nombre';
+                    var sub = (f.properties.mun || '-') + ' · ' + (f.properties.dep || '-');
+                    return '<div class="search-result-item" data-idx="' + idx + '">' +
+                        '<span class="item-title">' + name + '</span>' +
+                        '<span class="item-subtitle">' + sub + '</span>' +
+                        '</div>';
+                }).join('');
+
+                searchResults.classList.remove('hidden');
+
+                searchResults.querySelectorAll('.search-result-item').forEach(function (item) {
+                    item.addEventListener('click', function () {
+                        var idx = parseInt(this.dataset.idx);
+                        var f = matches[idx];
+                        if (!f) return;
+
+                        var lat = f.properties.lat;
+                        var lon = f.properties.lon;
+                        if (!lat || !lon) {
+                            if (f.geometry && f.geometry.coordinates) {
+                                lon = f.geometry.coordinates[0];
+                                lat = f.geometry.coordinates[1];
+                            }
+                        }
+
+                        if (lat && lon) {
+                            selectedSearchFeature = f;
+
+                            // Tridimensional smooth fly-in
+                            map.flyTo({
+                                center: [lon, lat],
+                                zoom: 14,
+                                pitch: 55,
+                                bearing: 25,
+                                essential: true,
+                                duration: 2000
+                            });
+
+                            updateDeckLayers();
+                        }
+
+                        searchInput.value = '';
+                        searchResults.innerHTML = '';
+                        searchResults.classList.add('hidden');
+                    });
+                });
+            });
+
+            document.addEventListener('click', function (e) {
+                if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                    searchResults.classList.add('hidden');
+                }
+            });
+        }
+
+        // 6. Sidebar selectors and filter logic
+        function populateFilters() {
+            var deps = [...new Set(allFeatures.map(function (f) {
+                return f.properties.dep;
+            }).filter(Boolean))].sort(function (a, b) {
+                return a.localeCompare(b, 'es');
+            });
+
+            deps.forEach(function (dep) {
+                depFilter.insertAdjacentHTML('beforeend', '<option value="' + dep + '">' + dep + '</option>');
+            });
+        }
+
+        function populateWinnerFilterOptions() {
+            var prev = winnerFilter.value || 'Todos';
+            var winners = [...new Set(allFeatures.map(function (f) {
+                return getWinnerForFeature(f);
+            }).filter(Boolean))].sort(function (a, b) {
+                return a.localeCompare(b, 'es');
+            });
+
+            winnerFilter.innerHTML = '<option value="Todos">Todos</option>';
+            winners.forEach(function (w) {
+                winnerFilter.insertAdjacentHTML('beforeend', '<option value="' + w + '">' + w + '</option>');
+            });
+
+            winnerFilter.value = winners.indexOf(prev) >= 0 ? prev : 'Todos';
+        }
+
+        function updateSecondRoundWins(features) {
+            var pdcWins = 0;
+            var libreWins = 0;
+
+            features.forEach(function (f) {
+                var winner = getWinnerForFeature(f);
+                if (winner === 'PDC') pdcWins += 1;
+                if (winner === 'LIBRE') libreWins += 1;
+            });
+
+            winsPdc.textContent = formatNum(pdcWins);
+            winsLibre.textContent = formatNum(libreWins);
+        }
+
+        function updateLegendSummary(features) {
+            var activeVisualizationMode = getActiveVisualizationMode();
+
+            if (activeVisualizationMode === 'participation') {
+                legendTitle.textContent = getVisualizationLegendTitle(activeVisualizationMode);
+
+                legendBar.innerHTML = '<div class="legend-colorbar" style="background: linear-gradient(to right, #e1524e, #f3b347, #307655, #0f6d72);"></div>';
+                legendSummary.innerHTML =
+                    '<div class="legend-colorbar-labels">' +
+                    '<span>Baja (<65%)</span>' +
+                    '<span>Media (75%)</span>' +
+                    '<span>Alta (>90%)</span>' +
+                    '</div>';
+                return;
+            }
+
+            if (activeVisualizationMode === 'margin') {
+                legendTitle.textContent = getVisualizationLegendTitle(activeVisualizationMode);
+
+                var isDark = document.body.classList.contains('dark-theme');
+                var startColor = isDark ? '#2e2e2e' : '#f0f0f0';
+                legendBar.innerHTML = '<div class="legend-colorbar" style="background: linear-gradient(to right, ' + startColor + ', #e1524e);"></div>';
+                legendSummary.innerHTML =
+                    '<div class="legend-colorbar-labels">' +
+                    '<span>Disputado (Empate)</span>' +
+                    '<span>Moderado (15%)</span>' +
+                    '<span>Contundente (>30%)</span>' +
+                    '</div>';
+                return;
+            }
+
+            legendTitle.textContent = getVisualizationLegendTitle(activeVisualizationMode);
+
+            var parties = currentRound === 'segunda'
+                ? ELECTION.SECOND_ROUND_PARTIES.map(function (party) {
+                    return { key: party, cls: party.toLowerCase(), color: ELECTION.PARTY_COLORS_HEX[party] };
+                }).concat([
+                    { key: 'Blancos', cls: 'blanco', color: ELECTION.PARTY_COLORS_HEX.BLANCO },
+                    { key: 'Nulos', cls: 'nulo', color: ELECTION.PARTY_COLORS_HEX.NULO },
+                    { key: 'No Votaron', cls: 'abs', color: ELECTION.PARTY_COLORS_HEX.ABS }
+                ])
+                : ELECTION.FIRST_ROUND_PARTIES.map(function (party) {
+                    var clsByParty = {
+                        PDC: 'pdc',
+                        LIBRE: 'libre',
+                        UNIDAD: 'unidad',
+                        AP: 'ap',
+                        'APB-SUMATE': 'apbs',
+                        'MAS-IPSP': 'mas',
+                        FP: 'fp',
+                        'LYP-ADN': 'lyp'
+                    };
+                    return { key: party, cls: clsByParty[party], color: ELECTION.PARTY_COLORS_HEX[party] };
+                }).concat([
+                    { key: 'Blancos', cls: 'blanco', color: ELECTION.PARTY_COLORS_HEX.BLANCO },
+                    { key: 'Nulos', cls: 'nulo', color: ELECTION.PARTY_COLORS_HEX.NULO },
+                    { key: 'No Votaron', cls: 'abs', color: ELECTION.PARTY_COLORS_HEX.ABS }
+                ]);
+
+            var totalHabilitados = features.reduce(function (sum, f) {
+                if (currentRound === 'segunda') {
+                    return sum + (Number(f.properties.hab_sv) || 0);
+                }
+                return sum + (Number(f.properties.hab) || 0);
+            }, 0);
+
+            var rows = parties.map(function (p) {
+                var votos = 0;
+                if (p.cls === 'blanco') {
+                    votos = features.reduce(function (sum, f) {
+                        return sum + (currentRound === 'segunda' ? (Number(f.properties.bla_sv) || 0) : (Number(f.properties.bla) || 0));
+                    }, 0);
+                } else if (p.cls === 'nulo') {
+                    votos = features.reduce(function (sum, f) {
+                        return sum + (currentRound === 'segunda' ? (Number(f.properties.nul_sv) || 0) : (Number(f.properties.nul) || 0));
+                    }, 0);
+                } else if (p.cls === 'abs') {
+                    votos = features.reduce(function (sum, f) {
+                        var hab = currentRound === 'segunda' ? (Number(f.properties.hab_sv) || 0) : (Number(f.properties.hab) || 0);
+                        var emi = currentRound === 'segunda' ? (Number(f.properties.emi_sv) || 0) : (Number(f.properties.emi) || 0);
+                        return sum + Math.max(0, hab - emi);
+                    }, 0);
+                } else {
+                    votos = features.reduce(function (sum, f) {
+                        return sum + getVotesForParty(f, p.key);
+                    }, 0);
+                }
+
+                var pct = totalHabilitados ? ((votos / totalHabilitados) * 100) : 0;
+                return {
+                    key: p.key,
+                    color: p.color,
+                    votos: votos,
+                    pct: pct
+                };
+            });
+
+            legendBar.innerHTML = rows.map(function (r) {
+                return '<span style="display:inline-block; height:100%; background:' + r.color + '; width:' + r.pct.toFixed(3) + '%"></span>';
+            }).join('');
+
+            legendSummary.innerHTML = rows.map(function (r) {
+                return '<div class="legend-row">' +
+                    '<span class="swatch" style="background:' + r.color + '"></span>' +
+                    '<span class="legend-party">' + r.key + '</span>' +
+                    '<div class="legend-track-bg">' +
+                        '<div style="height: 100%; background:' + r.color + '; width:' + r.pct.toFixed(1) + '%; border-radius: 2px;"></div>' +
+                    '</div>' +
+                    '<span class="legend-stats">' + r.pct.toFixed(1) + '% &middot; ' + formatNum(r.votos) + '</span>' +
+                    '</div>';
+            }).join('');
+        }
+
+        function updateTopStats(features) {
+            var hab = features.reduce(function (sum, f) {
+                if (currentRound === 'segunda') {
+                    return sum + (Number(f.properties.hab_sv) || 0);
+                }
+                return sum + (Number(f.properties.hab) || 0);
+            }, 0);
+
+            var emi = features.reduce(function (sum, f) {
+                if (currentRound === 'segunda') {
+                    return sum + (Number(f.properties.emi_sv) || 0);
+                }
+                return sum + (Number(f.properties.emi) || 0);
+            }, 0);
+
+            var val = features.reduce(function (sum, f) {
+                return sum + getValidVotes(f);
+            }, 0);
+
+            if (currentRound === 'segunda' && isNationalView()) {
+                val = OFFICIAL_SECOND_ROUND.PDC + OFFICIAL_SECOND_ROUND.LIBRE;
+            }
+
+            var part = hab ? ((emi / hab) * 100) : 0;
+
+            chipPart.textContent = part.toFixed(0) + '% participación';
+            chipVal.textContent = formatNum(val) + ' votos válidos';
+            chipRec.textContent = formatNum(features.length) + ' recintos';
+
+            updateLegendSummary(features);
+            updateSecondRoundWins(features);
+        }
+
+        function applyFilters() {
+            var dep = depFilter.value;
+            var winner = winnerFilter.value;
+
+            // Restore right general stats panel on filter changes
+            var generalDiv = document.getElementById('sb-right-general');
+            var detailsDiv = document.getElementById('sb-right-details');
+            if (generalDiv && detailsDiv) {
+                detailsDiv.classList.add('hidden');
+                generalDiv.classList.remove('hidden');
+            }
+
+            var filtered = allFeatures.filter(function (f) {
+                var okDep = dep === 'Todos' || f.properties.dep === dep;
+                var featureWinner = getWinnerForFeature(f);
+                var okWinner = winner === 'Todos' || featureWinner === winner;
+                return okDep && okWinner;
+            });
+
+            currentFilteredFeatures = filtered;
+
+            updateDeckLayers();
+            updateTopStats(filtered);
+        }
+
+        function setRound(round) {
+            currentRound = round === 'segunda' ? 'segunda' : 'primera';
+
+            roundBtns.forEach(function (btn) {
+                btn.classList.toggle('active', btn.dataset.round === currentRound);
+            });
+
+            colorByBlock.classList.remove('hidden');
+            secondRoundWinsBlock.classList.toggle('hidden', currentRound !== 'segunda');
+            populateWinnerFilterOptions();
+
+            applyFilters();
+        }
+
+        depFilter.addEventListener('change', function () {
+            // Reset specific search selection when department changes
+            selectedSearchFeature = null;
+            var searchInput = document.getElementById('searchInput');
+            if (searchInput) searchInput.value = '';
+
+            var dep = this.value;
+            if (dep === 'Todos') {
+                // Smooth zoom back to national view of Bolivia
+                map.flyTo({
+                    center: [-63.5, -16.5],
+                    zoom: 5.5,
+                    pitch: 45,
+                    bearing: 0,
+                    essential: true,
+                    duration: 2000
+                });
+            } else {
+                var loc = getDepartmentCenterAndZoom(dep);
+                map.flyTo({
+                    center: loc.center,
+                    zoom: loc.zoom,
+                    pitch: 50,
+                    bearing: 15,
+                    essential: true,
+                    duration: 2000
+                });
+            }
+            applyFilters();
+        });
+        winnerFilter.addEventListener('change', applyFilters);
+
+        var btnResetView = document.getElementById('btnResetView');
+        if (btnResetView) {
+            btnResetView.addEventListener('click', function () {
+                // 1. Reset filters in UI
+                depFilter.value = 'Todos';
+                winnerFilter.value = 'Todos';
+                selectedSearchFeature = null;
+
+                var searchInput = document.getElementById('searchInput');
+                if (searchInput) searchInput.value = '';
+
+                // Restore right general stats panel
+                var generalDiv = document.getElementById('sb-right-general');
+                var detailsDiv = document.getElementById('sb-right-details');
+                if (generalDiv && detailsDiv) {
+                    detailsDiv.classList.add('hidden');
+                    generalDiv.classList.remove('hidden');
+                }
+
+                // 2. Smoothly fly back to the beautiful national overview
+                map.flyTo({
+                    center: [-63.5, -16.5],
+                    zoom: initialZoom,
+                    pitch: initialPitch,
+                    bearing: initialBearing,
+                    essential: true,
+                    duration: 2000
+                });
+
+                // 3. Re-apply filters and update map layers
+                applyFilters();
+            });
+        }
+        roundBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                setRound(this.dataset.round);
+            });
+        });
+
+        // Back to General Statistics Button
+        var btnBackToGeneral = document.getElementById('btnBackToGeneral');
+        if (btnBackToGeneral) {
+            btnBackToGeneral.addEventListener('click', function() {
+                var generalDiv = document.getElementById('sb-right-general');
+                var detailsDiv = document.getElementById('sb-right-details');
+                if (generalDiv && detailsDiv) {
+                    detailsDiv.classList.add('hidden');
+                    generalDiv.classList.remove('hidden');
+                }
+            });
+        }
+
+        // Basemaps selector in 3D (Refined selector to exclude btnResetView)
+        document.querySelectorAll('.base-btn[data-base]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var styleUrl;
+                if (this.dataset.base === 'osm') {
+                    styleUrl = mapStyleOsm;
+                    document.body.classList.remove('dark-theme');
+                } else if (this.dataset.base === 'light') {
+                    styleUrl = mapStyleLight;
+                    document.body.classList.remove('dark-theme');
+                } else {
+                    styleUrl = mapStyleDark;
+                    document.body.classList.add('dark-theme');
+                }
+
+                map.setStyle(styleUrl);
+
+                // Re-trigger layout updates
+                setTimeout(function () {
+                    updateDeckLayers();
+                    updateLegendSummary(currentFilteredFeatures);
+                }, 300);
+
+                document.querySelectorAll('.base-btn[data-base]').forEach(function (b) {
+                    b.classList.remove('active');
+                });
+                this.classList.add('active');
+            });
+        });
+
+        // Visualization Mode
+        document.querySelectorAll('.color-mode-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.color-mode-btn').forEach(function (b) {
+                    b.classList.remove('active');
+                });
+                this.classList.add('active');
+
+                currentVisualizationMode = this.dataset.mode;
+
+                updateDeckLayers();
+                updateLegendSummary(currentFilteredFeatures);
+            });
+        });
+
+        // Initialize Page
+        applyVisualizationTextLabels();
+        populateFilters();
+        populateWinnerFilterOptions();
+        setupSearch();
+        setRound('primera');
+
+        // Mobile responsive sheet tabs and toggle logic
+        function switchMobileTab(tab) {
+            var sbLeft = document.getElementById('sb-left');
+            var sbRight = document.getElementById('sb-right');
+            var btnFiltersLeft = document.getElementById('mobileTabBtnFiltersLeft');
+            var btnResultsLeft = document.getElementById('mobileTabBtnResultsLeft');
+            var btnFiltersRight = document.getElementById('mobileTabBtnFiltersRight');
+            var btnResultsRight = document.getElementById('mobileTabBtnResultsRight');
+
+            if (tab === 'filters') {
+                sbLeft.classList.remove('sidebar-mobile-hidden');
+                sbRight.classList.add('sidebar-mobile-hidden');
+                
+                btnFiltersLeft.classList.add('active');
+                btnResultsLeft.classList.remove('active');
+                btnFiltersRight.classList.remove('active');
+                btnResultsRight.classList.add('active');
+            } else {
+                sbLeft.classList.add('sidebar-mobile-hidden');
+                sbRight.classList.remove('sidebar-mobile-hidden');
+
+                btnFiltersLeft.classList.remove('active');
+                btnResultsLeft.classList.add('active');
+                btnFiltersRight.classList.add('active');
+                btnResultsRight.classList.remove('active');
+            }
+        }
+
+        // Connect click event listeners for mobile tabs
+        var tabs = [
+            { id: 'mobileTabBtnFiltersLeft', tab: 'filters' },
+            { id: 'mobileTabBtnResultsLeft', tab: 'results' },
+            { id: 'mobileTabBtnFiltersRight', tab: 'filters' },
+            { id: 'mobileTabBtnResultsRight', tab: 'results' }
+        ];
+        tabs.forEach(function(item) {
+            var el = document.getElementById(item.id);
+            if (el) {
+                el.addEventListener('click', function() {
+                    switchMobileTab(item.tab);
+                });
+            }
+        });
+
+        // Bottom sheet toggle handles
+        var toggles = [
+            { toggleId: 'sbToggleLeft', sidebarId: 'sb-left' },
+            { toggleId: 'sbToggleRight', sidebarId: 'sb-right' }
+        ];
+        toggles.forEach(function(item) {
+            var toggleEl = document.getElementById(item.toggleId);
+            var sbEl = document.getElementById(item.sidebarId);
+            if (toggleEl && sbEl) {
+                toggleEl.addEventListener('click', function() {
+                    sbEl.classList.toggle('sidebar-collapsed');
+                });
+            }
+        });
+
+        // Initialize mobile state
+        if (window.innerWidth < 768) {
+            var sbLeft = document.getElementById('sb-left');
+            var sbRight = document.getElementById('sb-right');
+            if (sbLeft) sbLeft.classList.add('sidebar-collapsed');
+            if (sbRight) sbRight.classList.add('sidebar-collapsed');
+            switchMobileTab('filters');
+        }
+    </script>
+</body>
+
+</html>

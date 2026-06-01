@@ -1,0 +1,1119 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <link rel="stylesheet" href="css/leaflet.css">
+    <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
+    <link rel="stylesheet" href="css/qgis2web.css">
+    <link rel="stylesheet" href="css/fontawesome-all.min.css">
+    <link rel="stylesheet" href="css/leaflet.photon.css">
+    <link rel="stylesheet" href="css/custom.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+    <title>Resultados Electorales Bolivia 2025</title>
+</head>
+<body>
+
+    <header class="topbar">
+        <div class="brand" style="display: flex; align-items: center; gap: 8px;">
+            Resultados Electorales Bolivia 2025
+            <span class="chip-3d"><i class="fas fa-map"></i> VISTA 2D</span>
+        </div>
+        <div class="top-stats">
+            <span class="chip chip-green" id="chipPart">-- participación</span>
+            <span class="chip" id="chipVal">-- votos válidos</span>
+            <span class="chip" id="chipRec">-- recintos</span>
+        </div>
+        <div class="topbar-controls" style="display: flex; align-items: center; gap: 12px;">
+            <div id="basemapBar" class="basemap-bar">
+                <button class="base-btn btn-reset" id="btnResetView" type="button" title="Restablecer vista nacional y filtros">
+                    <i class="fas fa-home"></i>
+                </button>
+                <span style="width: 1px; height: 16px; background: currentColor; opacity: 0.15; margin: 0 2px;"></span>
+                <button class="base-btn active" data-base="light" type="button">Claro</button>
+                <button class="base-btn" data-base="dark" type="button">Oscuro</button>
+                <button class="base-btn" data-base="none" type="button">Sin mapa</button>
+            </div>
+            <a href="mapa3d.html" class="mode-switch-btn"><i class="fas fa-cube"></i> Ver en 3D</a>
+        </div>
+    </header>
+
+    <div class="layout">
+        <!-- Panel Izquierdo: Filtros y Búsqueda -->
+        <aside class="sidebar sidebar-left" id="sb-left">
+            <div class="sidebar-toggle-handle" id="sbToggleLeft">
+                <div class="handle-bar"></div>
+                <span class="handle-text">Opciones de Filtro</span>
+            </div>
+            
+            <div class="mobile-tabs" id="mobileTabsLeft">
+                <button class="mobile-tab-btn active" id="mobileTabBtnFiltersLeft" type="button">Filtros</button>
+                <button class="mobile-tab-btn" id="mobileTabBtnResultsLeft" type="button">Resultados</button>
+            </div>
+
+            <div class="panel-block">
+                <div class="panel-label">VUELTA ELECTORAL</div>
+                <div class="segmented segmented-2">
+                    <button class="seg active round-btn" data-round="primera" type="button">Primera vuelta</button>
+                    <button class="seg round-btn" data-round="segunda" type="button">Segunda vuelta</button>
+                </div>
+            </div>
+
+            <div class="panel-block" id="searchBlock">
+                <div class="panel-label">BUSCAR RECINTO</div>
+                <div class="search-box-container">
+                    <div class="search-input-wrap">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="Buscar recinto, municipio..." autocomplete="off">
+                    </div>
+                    <div class="search-results-dropdown hidden" id="searchResults"></div>
+                </div>
+            </div>
+
+            <div class="panel-block" id="colorByBlock">
+                <div class="panel-label">COLOREAR POR</div>
+                <div class="segmented segmented-3">
+                    <button class="seg active color-mode-btn" data-mode="winner" type="button">Ganador</button>
+                    <button class="seg color-mode-btn" data-mode="participation" type="button">Participación</button>
+                    <button class="seg color-mode-btn" data-mode="margin" type="button">Margen</button>
+                </div>
+            </div>
+
+            <div class="panel-block">
+                <div class="panel-label">DEPARTAMENTO</div>
+                <select id="depFilter" class="ui-select">
+                    <option value="Todos">Todos</option>
+                </select>
+            </div>
+
+            <div class="panel-block">
+                <div class="panel-label">FILTRAR POR GANADOR</div>
+                <select id="winnerFilter" class="ui-select">
+                    <option value="Todos">Todos</option>
+                </select>
+            </div>
+        </aside>
+
+        <!-- Panel Derecho: Analíticas, Composición y Detalles Dinámicos -->
+        <aside class="sidebar sidebar-right sidebar-mobile-hidden" id="sb-right">
+            <div class="sidebar-toggle-handle" id="sbToggleRight">
+                <div class="handle-bar"></div>
+                <span class="handle-text">Estadísticas y Resultados</span>
+            </div>
+
+            <div class="mobile-tabs" id="mobileTabsRight">
+                <button class="mobile-tab-btn" id="mobileTabBtnFiltersRight" type="button">Filtros</button>
+                <button class="mobile-tab-btn active" id="mobileTabBtnResultsRight" type="button">Resultados</button>
+            </div>
+
+            <!-- Vista Predeterminada: Composición General -->
+            <div id="sb-right-general" style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+                <div class="panel-block">
+                    <div class="panel-label" id="legendTitle">RESULTADO NACIONAL - PRIMERA VUELTA</div>
+                    <div class="legend-box compact">
+                        <div id="legendBar" class="legend-bar"></div>
+                        <div id="legendSummary"></div>
+                    </div>
+                </div>
+
+                <div class="panel-block hidden" id="secondRoundWinsBlock">
+                    <div class="panel-label">RECINTOS GANADOS</div>
+                    <div class="wins-grid">
+                        <div class="win-card">
+                            <div class="win-value pdc-text" id="winsPdc">0</div>
+                            <div class="win-label">PDC</div>
+                        </div>
+                        <div class="win-card">
+                            <div class="win-value libre-text" id="winsLibre">0</div>
+                            <div class="win-label">LIBRE</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vista Dinámica: Detalles de un Recinto Específico -->
+            <div id="sb-right-details" class="hidden" style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+                <div class="sidebar-right-header">
+                    <button class="btn-back" id="btnBackToGeneral" type="button">
+                        <i class="fas fa-arrow-left"></i> Volver al General
+                    </button>
+                </div>
+                <div id="precinctDetailsContent"></div>
+            </div>
+        </aside>
+
+        <main class="map-wrap">
+            <div id="map"></div>
+        </main>
+    </div>
+
+    <script src="js/qgis2web_expressions.js"></script>
+    <script src="js/leaflet.js"></script>
+    <script src="js/L.Control.Layers.Tree.min.js"></script>
+    <script src="js/leaflet.rotatedMarker.js"></script>
+    <script src="js/leaflet.pattern.js"></script>
+    <script src="js/leaflet-hash.js"></script>
+    <script src="js/Autolinker.min.js"></script>
+    <script src="js/rbush.min.js"></script>
+    <script src="js/labelgun.min.js"></script>
+    <script src="js/labels.js"></script>
+    <script src="js/leaflet.photon.js"></script>
+    <script src="data/recintos_1.js"></script>
+
+    <script>
+    var map = L.map('map', {
+        zoomControl: false,
+        maxZoom: 28,
+        minZoom: 1
+    }).fitBounds([[-22.79111663153141,-73.95054531758441],[-9.405611631531443,-53.327821093554434]]);
+
+    var hash = new L.Hash(map);
+    map.attributionControl.setPrefix(
+        '<a href="https://github.com/tomchadwin/qgis2web" target="_blank">qgis2web</a> &middot; ' +
+        '<a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; ' +
+        '<a href="https://qgis.org">QGIS</a>'
+    );
+
+    var autolinker = new Autolinker({ truncate: { length: 30, location: 'smart' } });
+
+    function removeEmptyRowsFromPopupContent(content, feature) {
+        var tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+        var rows = tempDiv.querySelectorAll('tr');
+
+        for (var i = 0; i < rows.length; i++) {
+            var td = rows[i].querySelector('td.visible-with-data');
+            var key = td ? td.id : '';
+            if (td && td.classList.contains('visible-with-data') && feature.properties[key] == null) {
+                rows[i].parentNode.removeChild(rows[i]);
+            }
+        }
+        return tempDiv.innerHTML;
+    }
+
+    function addClassToPopupIfMedia(content, popup) {
+        var tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+        var imgTd = tempDiv.querySelector('td img');
+
+        if (imgTd) {
+            var src = imgTd.getAttribute('src');
+            if (/\.(jpg|jpeg|png|gif|bmp|webp|avif)$/i.test(src)) {
+                popup._contentNode.classList.add('media');
+                setTimeout(function () { popup.update(); }, 10);
+            } else {
+                popup._contentNode.classList.remove('media');
+            }
+        } else {
+            popup._contentNode.classList.remove('media');
+        }
+    }
+
+    var zoomControl = L.control.zoom({
+        position: 'topleft'
+    }).addTo(map);
+
+    var bounds_group = new L.featureGroup([]);
+    function setBounds() {}
+
+    map.createPane('pane_Positron_0');
+    map.getPane('pane_Positron_0').style.zIndex = 400;
+
+    var layer_Positron_0 = L.tileLayer(
+        'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+        {
+            pane: 'pane_Positron_0',
+            opacity: 1.0,
+            attribution: '<a href="https://cartodb.com/basemaps/">Map tiles by CartoDB, under CC BY 3.0. Data by OpenStreetMap, under ODbL.</a>',
+            minZoom: 1,
+            maxZoom: 28,
+            minNativeZoom: 0,
+            maxNativeZoom: 20
+        }
+    );
+    map.addLayer(layer_Positron_0);
+
+    var baseLight = layer_Positron_0;
+
+    var baseDark = L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+        {
+            attribution: '&copy; OpenStreetMap &copy; CARTO',
+            minZoom: 1,
+            maxZoom: 28
+        }
+    );
+
+    var baseOsm = L.tileLayer(
+        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {
+            attribution: '&copy; OpenStreetMap contributors',
+            minZoom: 1,
+            maxZoom: 28
+        }
+    );
+
+    // Basemaps selector (Refined selector to exclude btnResetView)
+    document.querySelectorAll('.base-btn[data-base]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            [baseLight, baseDark, baseOsm].forEach(function(layer) {
+                if (map.hasLayer(layer)) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            if (this.dataset.base === 'osm') {
+                map.addLayer(baseOsm);
+            } else if (this.dataset.base === 'dark') {
+                map.addLayer(baseDark);
+            } else if (this.dataset.base === 'none') {
+                // sin capa base
+            } else {
+                map.addLayer(baseLight);
+            }
+
+            if (this.dataset.base === 'dark') {
+                document.body.classList.add('dark-theme');
+            } else {
+                document.body.classList.remove('dark-theme');
+            }
+
+            if (layer_recintos_1) {
+                layer_recintos_1.setStyle(style_recintos_1_0);
+            }
+            updateLegendSummary(currentFilteredFeatures);
+
+            document.querySelectorAll('.base-btn[data-base]').forEach(function(b) {
+                b.classList.remove('active');
+            });
+            this.classList.add('active');
+        });
+    });
+
+    function getRecintoTooltipHTML(feature) {
+        var recinto = feature.properties.rec || 'Recinto';
+        var subtitle = (feature.properties.mun || '-') + ' · ' + (feature.properties.dep || '-') + ' · Circ. ' + (feature.properties.circ || '-');
+
+        var isSecondRound = (currentRound === 'segunda');
+        var parties = isSecondRound 
+            ? ['PDC', 'LIBRE'] 
+            : ['PDC', 'LIBRE', 'UNIDAD', 'AP', 'APB-SUMATE', 'MAS-IPSP', 'FP', 'LYP-ADN'];
+
+        var colorByParty = {
+            'PDC': '#0f6d72',
+            'LIBRE': '#e1524e',
+            'UNIDAD': '#f3b347',
+            'AP': '#7f64a8',
+            'APB-SUMATE': '#3e1f72',
+            'MAS-IPSP': '#2f7486',
+            'FP': '#2db7ea',
+            'LYP-ADN': '#b61f31'
+        };
+
+        var partyData = [];
+        var totalPartyVotes = 0;
+        parties.forEach(function(p) {
+            var votes = getVotesForParty(feature, p);
+            totalPartyVotes += votes;
+            partyData.push({ key: p, votes: votes });
+        });
+
+        partyData.forEach(function(p) {
+            p.pct = totalPartyVotes ? (p.votes / totalPartyVotes) * 100 : 0;
+        });
+
+        partyData.sort(function(a, b) {
+            return b.votes - a.votes;
+        });
+
+        if (!isSecondRound) {
+            var activePartyData = partyData.filter(function(p) {
+                return p.votes > 0;
+            });
+            if (activePartyData.length > 0) {
+                partyData = activePartyData;
+            }
+        }
+
+        var winner = getWinnerForFeature(feature);
+        if (!winner && partyData[0]) {
+            winner = partyData[0].key;
+        }
+        if (!winner) winner = 'PDC';
+
+        var winnerData = partyData.find(function(p) {
+            return p.key === winner;
+        });
+        var winnerPct = winnerData ? winnerData.pct : 0;
+        var winnerColor = colorByParty[winner] || '#9ab1b5';
+
+        var hab = isSecondRound ? (Number(feature.properties.hab_sv) || 0) : (Number(feature.properties.hab) || 0);
+        var emi = isSecondRound ? (Number(feature.properties.emi_sv) || 0) : (Number(feature.properties.emi) || 0);
+        var par = hab ? (emi / hab) * 100 : 0;
+
+        var candidatesHTML = '';
+        var cands = feature.properties.cand_json;
+        if (cands) {
+            if (typeof cands === 'string') {
+                try { cands = JSON.parse(cands); } catch(e) { cands = null; }
+            }
+            if (Array.isArray(cands) && cands.length > 0) {
+                candidatesHTML += '<div class="popup-candidates-title">Candidatos Locales</div>';
+                candidatesHTML += '<div class="popup-candidates-list">';
+                
+                cands.forEach(function(cand) {
+                    var partyColor = colorByParty[cand.p] || '#9ab1b5';
+                    var badge = cand.w ? '<span class="popup-cand-badge">Electo</span>' : '';
+                    var details = cand.p + ' · ' + (cand.ca || 'Candidato') + (cand.e ? (' · ' + cand.e + ' años') : '');
+                    candidatesHTML += 
+                        '<div class="popup-candidate-item">' +
+                            '<div class="popup-cand-party-stripe" style="background:' + partyColor + '"></div>' +
+                            '<div class="popup-cand-info">' +
+                                '<div class="popup-cand-name">' + cand.n + '</div>' +
+                                '<div class="popup-cand-details">' + details + '</div>' +
+                            '</div>' +
+                            badge +
+                        '</div>';
+                });
+                candidatesHTML += '</div>';
+            }
+        }
+
+        var miniBarHTML = '<div class="popup-mini-bar">';
+        partyData.forEach(function(p) {
+            var color = colorByParty[p.key] || '#9ab1b5';
+            miniBarHTML += '<span class="popup-segment" style="background:' + color + '; width:' + p.pct.toFixed(3) + '%"></span>';
+        });
+        miniBarHTML += '</div>';
+
+        var partyRowsHTML = '';
+        partyData.forEach(function(p) {
+            var color = colorByParty[p.key] || '#9ab1b5';
+            partyRowsHTML += 
+                '<div class="popup-party-row">' +
+                    '<span class="popup-dot" style="background:' + color + '"></span>' +
+                    '<span class="popup-party">' + p.key + '</span>' +
+                    '<span class="popup-pct">' + p.pct.toFixed(1) + '%</span>' +
+                    '<span class="popup-votes">' + formatNum(p.votes) + '</span>' +
+                '</div>';
+        });
+
+        var content =
+            '<div class="popup-card">' +
+                '<div class="popup-title">' + recinto + '</div>' +
+                '<div class="popup-subtitle">' + subtitle + '</div>' +
+
+                '<div class="popup-winner">' +
+                    '<span class="popup-dot" style="background:' + winnerColor + '"></span>' +
+                    '<span class="popup-winner-name">' + winner + '</span>' +
+                    '<span class="popup-winner-pct">' + winnerPct.toFixed(1) + '%</span>' +
+                '</div>' +
+
+                '<div class="popup-party-box">' +
+                    miniBarHTML +
+                    partyRowsHTML +
+                '</div>' +
+
+                '<div class="popup-metrics">' +
+                    '<div><strong>' + formatNum(hab) + '</strong><span>habilitados</span></div>' +
+                    '<div><strong>' + formatNum(emi) + '</strong><span>emitidos</span></div>' +
+                    '<div><strong>' + par.toFixed(1) + '%</strong><span>participación</span></div>' +
+                '</div>' +
+                candidatesHTML +
+            '</div>';
+
+        return content;
+    }
+
+    function pop_recintos_1(feature, layer) {
+        layer.on('click', function(e) {
+            var content = getRecintoTooltipHTML(feature);
+            var generalDiv = document.getElementById('sb-right-general');
+            var detailsDiv = document.getElementById('sb-right-details');
+            var contentDiv = document.getElementById('precinctDetailsContent');
+
+            if (generalDiv && detailsDiv && contentDiv) {
+                contentDiv.innerHTML = content;
+                generalDiv.classList.add('hidden');
+                detailsDiv.classList.remove('hidden');
+
+                if (window.innerWidth < 768) {
+                    switchMobileTab('results');
+                    var sbRight = document.getElementById('sb-right');
+                    if (sbRight) sbRight.classList.remove('sidebar-collapsed');
+                }
+            }
+        });
+    }
+
+    var currentColorMode = 'winner';
+    var currentFilteredFeatures = [];
+
+    function getParticipationColor(pct) {
+        if (pct <= 65) return '#e1524e';
+        if (pct >= 90) return '#0f6d72';
+        var ratio = (pct - 65) / (90 - 65);
+        if (ratio < 0.5) {
+            var rRatio = ratio * 2;
+            var r = Math.round(225 + (243 - 225) * rRatio);
+            var g = Math.round(82 + (179 - 82) * rRatio);
+            var b = Math.round(78 + (71 - 78) * rRatio);
+            return 'rgb(' + r + ',' + g + ',' + b + ')';
+        } else {
+            var tRatio = (ratio - 0.5) * 2;
+            var r = Math.round(243 + (15 - 243) * tRatio);
+            var g = Math.round(179 + (109 - 179) * tRatio);
+            var b = Math.round(71 + (114 - 71) * tRatio);
+            return 'rgb(' + r + ',' + g + ',' + b + ')';
+        }
+    }
+
+    function getMarginOfVictory(feature) {
+        if (currentRound === 'segunda') {
+            var pdc = Number(feature.properties['svPDC']) || 0;
+            var libre = Number(feature.properties['svLIBRE']) || 0;
+            var tot = pdc + libre;
+            if (!tot) return 0;
+            return (Math.abs(pdc - libre) / tot) * 100;
+        } else {
+            var parties = ['PDC', 'LIBRE', 'UNIDAD', 'AP', 'APB-SUMATE', 'MAS-IPSP', 'FP', 'LYP-ADN'];
+            var votes = parties.map(function(p) {
+                return { party: p, count: Number(feature.properties['v_' + p]) || 0 };
+            }).sort(function(a, b) { return b.count - a.count; });
+            var tot = votes.reduce(function(sum, v) { return sum + v.count; }, 0);
+            if (!tot) return 0;
+            return ((votes[0].count - votes[1].count) / tot) * 100;
+        }
+    }
+
+    function blendColors(targetColor, ratio) {
+        var parseHex = function(hex) {
+            var c = hex.substring(1);
+            if (c.length === 3) c = c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+            return {
+                r: parseInt(c.substring(0, 2), 16),
+                g: parseInt(c.substring(2, 4), 16),
+                b: parseInt(c.substring(4, 6), 16)
+            };
+        };
+        var isDark = document.body.classList.contains('dark-theme');
+        var neutralHex = isDark ? '#2e2e2e' : '#f0f0f0';
+        
+        var rgb1 = parseHex(targetColor);
+        var rgb2 = parseHex(neutralHex);
+        
+        var r = Math.round(rgb2.r + (rgb1.r - rgb2.r) * ratio);
+        var g = Math.round(rgb2.g + (rgb1.g - rgb2.g) * ratio);
+        var b = Math.round(rgb2.b + (rgb1.b - rgb2.b) * ratio);
+        return 'rgb(' + r + ',' + g + ',' + b + ')';
+    }
+
+    function style_recintos_1_0(feature) {
+        var winner = getWinnerForFeature(feature);
+        var colorByParty;
+
+        if (currentRound === 'segunda') {
+            colorByParty = {
+                'PDC': '#0f6d72',
+                'LIBRE': '#e1524e'
+            };
+        } else {
+            colorByParty = {
+                'PDC': '#0f6d72',
+                'LIBRE': '#e1524e',
+                'UNIDAD': '#f3b347',
+                'AP': '#7f64a8',
+                'APB-SUMATE': '#3e1f72',
+                'MAS-IPSP': '#2f7486',
+                'FP': '#2db7ea',
+                'LYP-ADN': '#b61f31'
+            };
+        }
+
+        var fillColorVal;
+        if (currentColorMode === 'participation') {
+            var hab = currentRound === 'segunda' ? (Number(feature.properties.hab_sv) || 0) : (Number(feature.properties.hab) || 0);
+            var emi = currentRound === 'segunda' ? (Number(feature.properties.emi_sv) || 0) : (Number(feature.properties.emi) || 0);
+            var par = hab ? (emi / hab) * 100 : 0;
+            fillColorVal = getParticipationColor(par);
+        } else if (currentColorMode === 'margin') {
+            var baseColor = colorByParty[String(winner)] || '#9ab1b5';
+            var margin = getMarginOfVictory(feature);
+            var ratio = Math.min(margin / 30.0, 1.0);
+            fillColorVal = blendColors(baseColor, ratio);
+        } else {
+            fillColorVal = colorByParty[String(winner)] || '#9ab1b5';
+        }
+
+        return {
+            pane: 'pane_recintos_1',
+            radius: currentRound === 'segunda' ? 3.0 : 3.2,
+            opacity: 0.92,
+            color: 'rgba(48, 69, 90, 0.35)',
+            weight: 0.55,
+            fill: true,
+            fillOpacity: 0.86,
+            fillColor: fillColorVal,
+            interactive: true
+        };
+    }
+
+    map.createPane('pane_recintos_1');
+    map.getPane('pane_recintos_1').style.zIndex = 401;
+    map.getPane('pane_recintos_1').style['mix-blend-mode'] = 'normal';
+
+    var allFeatures = json_recintos_1.features.slice();
+    var layer_recintos_1;
+    var currentRound = 'primera';
+    var OFFICIAL_SECOND_ROUND = {
+        PDC: 3519534,
+        LIBRE: 2884661
+    };
+
+    function buildRecintosLayer(features) {
+        if (layer_recintos_1) {
+            bounds_group.removeLayer(layer_recintos_1);
+            map.removeLayer(layer_recintos_1);
+        }
+
+        layer_recintos_1 = L.geoJson(
+            {
+                type: 'FeatureCollection',
+                features: features
+            },
+            {
+                attribution: '',
+                interactive: true,
+                pane: 'pane_recintos_1',
+                onEachFeature: pop_recintos_1,
+                pointToLayer: function(feature, latlng) {
+                    return L.circleMarker(latlng, style_recintos_1_0(feature));
+                }
+            }
+        );
+
+        bounds_group.addLayer(layer_recintos_1);
+        map.addLayer(layer_recintos_1);
+
+        if (features.length > 0) {
+            var b = layer_recintos_1.getBounds();
+            if (b.isValid()) {
+                map.fitBounds(b, { padding: [20, 20] });
+            }
+        }
+    }
+
+    var depFilter = document.getElementById('depFilter');
+    var winnerFilter = document.getElementById('winnerFilter');
+    var chipPart = document.getElementById('chipPart');
+    var chipVal = document.getElementById('chipVal');
+    var chipRec = document.getElementById('chipRec');
+    var roundBtns = document.querySelectorAll('.round-btn');
+    var legendSummary = document.getElementById('legendSummary');
+    var legendBar = document.getElementById('legendBar');
+    var legendTitle = document.getElementById('legendTitle');
+    var colorByBlock = document.getElementById('colorByBlock');
+    var secondRoundWinsBlock = document.getElementById('secondRoundWinsBlock');
+    var winsPdc = document.getElementById('winsPdc');
+    var winsLibre = document.getElementById('winsLibre');
+
+    function formatNum(n) {
+        return Number(n || 0).toLocaleString('es-BO');
+    }
+
+    function isNationalView() {
+        return depFilter.value === 'Todos' && winnerFilter.value === 'Todos';
+    }
+
+    function getWinnerForFeature(feature) {
+        if (currentRound === 'segunda') {
+            var pdcVotes = Number(feature.properties['svPDC']) || 0;
+            var libreVotes = Number(feature.properties['svLIBRE']) || 0;
+            if (pdcVotes === libreVotes) return null;
+            return pdcVotes > libreVotes ? 'PDC' : 'LIBRE';
+        }
+        return feature.properties.g || null;
+    }
+
+    function getVotesForParty(feature, partyKey) {
+        if (currentRound === 'segunda') {
+            if (partyKey === 'PDC') return Number(feature.properties['svPDC']) || 0;
+            if (partyKey === 'LIBRE') return Number(feature.properties['svLIBRE']) || 0;
+        }
+        return Number(feature.properties['v_' + partyKey]) || 0;
+    }
+
+    function getValidVotes(feature) {
+        if (currentRound === 'segunda') {
+            return Number(feature.properties['val_sv']) || 0;
+        }
+        return Number(feature.properties.val) || 0;
+    }
+
+    function populateFilters() {
+        var deps = [...new Set(allFeatures.map(function(f) {
+            return f.properties.dep;
+        }).filter(Boolean))].sort(function(a, b) {
+            return a.localeCompare(b, 'es');
+        });
+
+        deps.forEach(function(dep) {
+            depFilter.insertAdjacentHTML('beforeend', '<option value="' + dep + '">' + dep + '</option>');
+        });
+    }
+
+    function populateWinnerFilterOptions() {
+        var prev = winnerFilter.value || 'Todos';
+        var winners = [...new Set(allFeatures.map(function(f) {
+            return getWinnerForFeature(f);
+        }).filter(Boolean))].sort(function(a, b) {
+            return a.localeCompare(b, 'es');
+        });
+
+        winnerFilter.innerHTML = '<option value="Todos">Todos</option>';
+        winners.forEach(function(w) {
+            winnerFilter.insertAdjacentHTML('beforeend', '<option value="' + w + '">' + w + '</option>');
+        });
+
+        winnerFilter.value = winners.indexOf(prev) >= 0 ? prev : 'Todos';
+    }
+
+    function updateSecondRoundWins(features) {
+        var pdcWins = 0;
+        var libreWins = 0;
+
+        features.forEach(function(f) {
+            var winner = getWinnerForFeature(f);
+            if (winner === 'PDC') pdcWins += 1;
+            if (winner === 'LIBRE') libreWins += 1;
+        });
+
+        winsPdc.textContent = formatNum(pdcWins);
+        winsLibre.textContent = formatNum(libreWins);
+    }
+
+    function updateLegendSummary(features) {
+        if (currentColorMode === 'participation') {
+            legendTitle.textContent = currentRound === 'segunda'
+                ? 'PARTICIPACIÓN - SEGUNDA VUELTA'
+                : 'PARTICIPACIÓN - PRIMERA VUELTA';
+            
+            legendBar.innerHTML = '<div class="legend-colorbar" style="background: linear-gradient(to right, #e1524e, #f3b347, #307655, #0f6d72);"></div>';
+            legendSummary.innerHTML = 
+                '<div class="legend-colorbar-labels">' +
+                    '<span>Baja (<65%)</span>' +
+                    '<span>Media (75%)</span>' +
+                    '<span>Alta (>90%)</span>' +
+                '</div>';
+            return;
+        }
+
+        if (currentColorMode === 'margin') {
+            legendTitle.textContent = currentRound === 'segunda'
+                ? 'MARGEN DE VICTORIA - SEGUNDA VUELTA'
+                : 'MARGEN DE VICTORIA - PRIMERA VUELTA';
+            
+            var isDark = document.body.classList.contains('dark-theme');
+            var startColor = isDark ? '#2e2e2e' : '#f0f0f0';
+            legendBar.innerHTML = '<div class="legend-colorbar" style="background: linear-gradient(to right, ' + startColor + ', #e1524e);"></div>';
+            legendSummary.innerHTML = 
+                '<div class="legend-colorbar-labels">' +
+                    '<span>Disputado (Empate)</span>' +
+                    '<span>Moderado (15%)</span>' +
+                    '<span>Contundente (>30%)</span>' +
+                '</div>';
+            return;
+        }
+
+        legendTitle.textContent = currentRound === 'segunda'
+            ? 'RESULTADO NACIONAL - SEGUNDA VUELTA'
+            : 'RESULTADO NACIONAL - PRIMERA VUELTA';
+
+        var parties = currentRound === 'segunda'
+            ? [
+                { key: 'PDC', cls: 'pdc', color: '#0f6d72' },
+                { key: 'LIBRE', cls: 'libre', color: '#e1524e' }
+            ]
+            : [
+                { key: 'PDC', cls: 'pdc', color: '#0f6d72' },
+                { key: 'LIBRE', cls: 'libre', color: '#e1524e' },
+                { key: 'UNIDAD', cls: 'unidad', color: '#f3b347' },
+                { key: 'AP', cls: 'ap', color: '#7f64a8' },
+                { key: 'APB-SUMATE', cls: 'apbs', color: '#3e1f72' },
+                { key: 'MAS-IPSP', cls: 'mas', color: '#2f7486' },
+                { key: 'FP', cls: 'fp', color: '#2db7ea' },
+                { key: 'LYP-ADN', cls: 'lyp', color: '#b61f31' }
+            ];
+
+        var totalValidos = features.reduce(function(sum, f) {
+            return sum + getValidVotes(f);
+        }, 0);
+
+        var rows = parties.map(function(p) {
+            var votos;
+            if (currentRound === 'segunda' && isNationalView()) {
+                votos = OFFICIAL_SECOND_ROUND[p.key] || 0;
+            } else {
+                votos = features.reduce(function(sum, f) {
+                    return sum + getVotesForParty(f, p.key);
+                }, 0);
+            }
+
+            var pct = totalValidos ? ((votos / totalValidos) * 100) : 0;
+
+            return {
+                key: p.key,
+                cls: p.cls,
+                color: p.color,
+                votos: votos,
+                pct: pct
+            };
+        }).sort(function(a, b) {
+            return b.votos - a.votos;
+        });
+
+        // En segunda vuelta la barra y porcentajes se muestran solo entre PDC y LIBRE.
+        var denominator = currentRound === 'segunda'
+            ? rows.reduce(function(sum, r) { return sum + r.votos; }, 0)
+            : totalValidos;
+
+        legendBar.innerHTML = rows.map(function(r) {
+            var width = denominator ? ((r.votos / denominator) * 100) : 0;
+            return '<span class="legend-segment ' + r.cls + '" style="width:' + width.toFixed(3) + '%"></span>';
+        }).join('');
+
+        legendSummary.innerHTML = rows.map(function(r) {
+            var shownPct = denominator ? ((r.votos / denominator) * 100) : 0;
+            var pctText = (currentRound === 'segunda' && isNationalView())
+                ? shownPct.toFixed(2)
+                : shownPct.toFixed(1);
+            return '<div class="legend-row">' +
+                '<span class="swatch ' + r.cls + '"></span>' +
+                '<span class="legend-party">' + r.key + '</span>' +
+                '<div class="legend-track-bg">' +
+                    '<div style="height: 100%; background:' + r.color + '; width:' + shownPct.toFixed(1) + '%; border-radius: 2px;"></div>' +
+                '</div>' +
+                '<span class="legend-stats">' + pctText + '% &middot; ' + formatNum(r.votos) + '</span>' +
+                '</div>';
+        }).join('');
+    }
+
+    function updateTopStats(features) {
+        var hab = features.reduce(function(sum, f) {
+            if (currentRound === 'segunda') {
+                return sum + (Number(f.properties.hab_sv) || 0);
+            }
+            return sum + (Number(f.properties.hab) || 0);
+        }, 0);
+
+        var emi = features.reduce(function(sum, f) {
+            if (currentRound === 'segunda') {
+                return sum + (Number(f.properties.emi_sv) || 0);
+            }
+            return sum + (Number(f.properties.emi) || 0);
+        }, 0);
+
+        var val = features.reduce(function(sum, f) {
+            return sum + getValidVotes(f);
+        }, 0);
+
+        if (currentRound === 'segunda' && isNationalView()) {
+            val = OFFICIAL_SECOND_ROUND.PDC + OFFICIAL_SECOND_ROUND.LIBRE;
+        }
+
+        var part = hab ? ((emi / hab) * 100) : 0;
+
+        chipPart.textContent = part.toFixed(0) + '% participación';
+        chipVal.textContent = formatNum(val) + ' votos válidos';
+        chipRec.textContent = formatNum(features.length) + ' recintos';
+
+        updateLegendSummary(features);
+        updateSecondRoundWins(features);
+    }
+
+    function applyFilters() {
+        var dep = depFilter.value;
+        var winner = winnerFilter.value;
+
+        // Restore right general stats panel on filter changes
+        var generalDiv = document.getElementById('sb-right-general');
+        var detailsDiv = document.getElementById('sb-right-details');
+        if (generalDiv && detailsDiv) {
+            detailsDiv.classList.add('hidden');
+            generalDiv.classList.remove('hidden');
+        }
+
+        var filtered = allFeatures.filter(function(f) {
+            var okDep = dep === 'Todos' || f.properties.dep === dep;
+            var featureWinner = getWinnerForFeature(f);
+            var okWinner = winner === 'Todos' || featureWinner === winner;
+            return okDep && okWinner;
+        });
+
+        currentFilteredFeatures = filtered;
+        buildRecintosLayer(filtered);
+        updateTopStats(filtered);
+    }
+
+    function setupSearch() {
+        var searchInput = document.getElementById('searchInput');
+        var searchResults = document.getElementById('searchResults');
+        
+        if (!searchInput || !searchResults) return;
+        
+        searchInput.addEventListener('input', function() {
+            var val = this.value.trim().toLowerCase();
+            if (val.length < 2) {
+                searchResults.innerHTML = '';
+                searchResults.classList.add('hidden');
+                return;
+            }
+            
+            var matches = [];
+            for (var i = 0; i < allFeatures.length; i++) {
+                var f = allFeatures[i];
+                var rec = (f.properties.rec || '').toLowerCase();
+                var mun = (f.properties.mun || '').toLowerCase();
+                var dep = (f.properties.dep || '').toLowerCase();
+                
+                if (rec.indexOf(val) >= 0 || mun.indexOf(val) >= 0 || dep.indexOf(val) >= 0) {
+                    matches.push(f);
+                    if (matches.length >= 10) break;
+                }
+            }
+            
+            if (matches.length === 0) {
+                searchResults.innerHTML = '<div class="search-result-item" style="cursor:default;color:#888;">No se encontraron resultados</div>';
+                searchResults.classList.remove('hidden');
+                return;
+            }
+            
+            searchResults.innerHTML = matches.map(function(f, idx) {
+                var name = f.properties.rec || 'Recinto sin nombre';
+                var sub = (f.properties.mun || '-') + ' · ' + (f.properties.dep || '-');
+                return '<div class="search-result-item" data-idx="' + idx + '">' +
+                    '<span class="item-title">' + name + '</span>' +
+                    '<span class="item-subtitle">' + sub + '</span>' +
+                    '</div>';
+            }).join('');
+            
+            searchResults.classList.remove('hidden');
+            
+            searchResults.querySelectorAll('.search-result-item').forEach(function(item) {
+                item.addEventListener('click', function() {
+                    var idx = parseInt(this.dataset.idx);
+                    var f = matches[idx];
+                    if (!f) return;
+                    
+                    var lat = f.properties.lat;
+                    var lon = f.properties.lon;
+                    if (!lat || !lon) {
+                        if (f.geometry && f.geometry.coordinates) {
+                            lon = f.geometry.coordinates[0];
+                            lat = f.geometry.coordinates[1];
+                        }
+                    }
+                    
+                    if (lat && lon) {
+                        map.flyTo([lat, lon], 14, {
+                            animate: true,
+                            duration: 1.5
+                        });
+                        
+                        setTimeout(function() {
+                            var content = getRecintoTooltipHTML(f);
+                            var generalDiv = document.getElementById('sb-right-general');
+                            var detailsDiv = document.getElementById('sb-right-details');
+                            var contentDiv = document.getElementById('precinctDetailsContent');
+
+                            if (generalDiv && detailsDiv && contentDiv) {
+                                contentDiv.innerHTML = content;
+                                generalDiv.classList.add('hidden');
+                                detailsDiv.classList.remove('hidden');
+
+                                if (window.innerWidth < 768) {
+                                    switchMobileTab('results');
+                                    var sbRight = document.getElementById('sb-right');
+                                    if (sbRight) sbRight.classList.remove('sidebar-collapsed');
+                                }
+                            }
+                        }, 1600);
+                    }
+                    
+                    searchInput.value = '';
+                    searchResults.innerHTML = '';
+                    searchResults.classList.add('hidden');
+                });
+            });
+        });
+        
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.classList.add('hidden');
+            }
+        });
+    }
+
+    // Set up Color Mode buttons
+    document.querySelectorAll('.color-mode-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.color-mode-btn').forEach(function(b) {
+                b.classList.remove('active');
+            });
+            this.classList.add('active');
+            
+            currentColorMode = this.dataset.mode;
+            
+            if (layer_recintos_1) {
+                layer_recintos_1.setStyle(style_recintos_1_0);
+            }
+            
+            updateLegendSummary(currentFilteredFeatures);
+        });
+    });
+
+    function setRound(round) {
+        currentRound = round === 'segunda' ? 'segunda' : 'primera';
+
+        roundBtns.forEach(function(btn) {
+            btn.classList.toggle('active', btn.dataset.round === currentRound);
+        });
+
+        legendTitle.textContent = currentRound === 'segunda'
+            ? 'RESULTADO NACIONAL - SEGUNDA VUELTA'
+            : 'RESULTADO NACIONAL - PRIMERA VUELTA';
+
+        colorByBlock.classList.toggle('hidden', currentRound === 'segunda');
+        secondRoundWinsBlock.classList.toggle('hidden', currentRound !== 'segunda');
+        populateWinnerFilterOptions();
+
+        applyFilters();
+    }
+
+    depFilter.addEventListener('change', applyFilters);
+    winnerFilter.addEventListener('change', applyFilters);
+
+    var btnResetView = document.getElementById('btnResetView');
+    if (btnResetView) {
+        btnResetView.addEventListener('click', function () {
+            // 1. Reset filters in UI
+            depFilter.value = 'Todos';
+            winnerFilter.value = 'Todos';
+
+            var searchInput = document.getElementById('searchInput');
+            if (searchInput) searchInput.value = '';
+
+            // Restore right general stats panel
+            var generalDiv = document.getElementById('sb-right-general');
+            var detailsDiv = document.getElementById('sb-right-details');
+            if (generalDiv && detailsDiv) {
+                detailsDiv.classList.add('hidden');
+                generalDiv.classList.remove('hidden');
+            }
+
+            // 2. Re-apply filters which will update map layer and fit bounds to national overview
+            applyFilters();
+        });
+    }
+    roundBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            setRound(this.dataset.round);
+        });
+    });
+
+    // Back to General Statistics Button
+    var btnBackToGeneral = document.getElementById('btnBackToGeneral');
+    if (btnBackToGeneral) {
+        btnBackToGeneral.addEventListener('click', function() {
+            var generalDiv = document.getElementById('sb-right-general');
+            var detailsDiv = document.getElementById('sb-right-details');
+            if (generalDiv && detailsDiv) {
+                detailsDiv.classList.add('hidden');
+                generalDiv.classList.remove('hidden');
+            }
+        });
+    }
+
+    // Mobile responsive sheet tabs and toggle logic
+    function switchMobileTab(tab) {
+        var sbLeft = document.getElementById('sb-left');
+        var sbRight = document.getElementById('sb-right');
+        var btnFiltersLeft = document.getElementById('mobileTabBtnFiltersLeft');
+        var btnResultsLeft = document.getElementById('mobileTabBtnResultsLeft');
+        var btnFiltersRight = document.getElementById('mobileTabBtnFiltersRight');
+        var btnResultsRight = document.getElementById('mobileTabBtnResultsRight');
+
+        if (tab === 'filters') {
+            sbLeft.classList.remove('sidebar-mobile-hidden');
+            sbRight.classList.add('sidebar-mobile-hidden');
+            
+            btnFiltersLeft.classList.add('active');
+            btnResultsLeft.classList.remove('active');
+            btnFiltersRight.classList.remove('active');
+            btnResultsRight.classList.add('active');
+        } else {
+            sbLeft.classList.add('sidebar-mobile-hidden');
+            sbRight.classList.remove('sidebar-mobile-hidden');
+
+            btnFiltersLeft.classList.remove('active');
+            btnResultsLeft.classList.add('active');
+            btnFiltersRight.classList.add('active');
+            btnResultsRight.classList.remove('active');
+        }
+    }
+
+    // Connect click event listeners for mobile tabs
+    var tabs = [
+        { id: 'mobileTabBtnFiltersLeft', tab: 'filters' },
+        { id: 'mobileTabBtnResultsLeft', tab: 'results' },
+        { id: 'mobileTabBtnFiltersRight', tab: 'filters' },
+        { id: 'mobileTabBtnResultsRight', tab: 'results' }
+    ];
+    tabs.forEach(function(item) {
+        var el = document.getElementById(item.id);
+        if (el) {
+            el.addEventListener('click', function() {
+                switchMobileTab(item.tab);
+            });
+        }
+    });
+
+    // Bottom sheet toggle handles
+    var toggles = [
+        { toggleId: 'sbToggleLeft', sidebarId: 'sb-left' },
+        { toggleId: 'sbToggleRight', sidebarId: 'sb-right' }
+    ];
+    toggles.forEach(function(item) {
+        var toggleEl = document.getElementById(item.toggleId);
+        var sbEl = document.getElementById(item.sidebarId);
+        if (toggleEl && sbEl) {
+            toggleEl.addEventListener('click', function() {
+                sbEl.classList.toggle('sidebar-collapsed');
+            });
+        }
+    });
+
+    // Initialize mobile state
+    if (window.innerWidth < 768) {
+        var sbLeft = document.getElementById('sb-left');
+        var sbRight = document.getElementById('sb-right');
+        if (sbLeft) sbLeft.classList.add('sidebar-collapsed');
+        if (sbRight) sbRight.classList.add('sidebar-collapsed');
+        switchMobileTab('filters');
+    }
+
+    populateFilters();
+    populateWinnerFilterOptions();
+    setupSearch();
+    setRound('primera');
+    setBounds();
+    </script>
+</body>
+</html>
