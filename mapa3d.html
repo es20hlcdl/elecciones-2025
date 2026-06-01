@@ -68,7 +68,7 @@
     <div class="layout">
         <!-- Panel Izquierdo: Filtros y Búsqueda -->
         <aside class="sidebar sidebar-left" id="sb-left">
-            <div class="sidebar-toggle-handle" id="sbToggleLeft">
+            <div class="sidebar-toggle-handle" id="sbToggleLeft" role="button" tabindex="0" aria-controls="sb-left" aria-expanded="true" title="Colapsar o expandir filtros">
                 <div class="handle-bar"></div>
                 <span class="handle-text">Opciones de Filtro</span>
             </div>
@@ -124,7 +124,7 @@
 
         <!-- Panel Derecho: Analíticas, Composición y Detalles Dinámicos -->
         <aside class="sidebar sidebar-right sidebar-mobile-hidden" id="sb-right">
-            <div class="sidebar-toggle-handle" id="sbToggleRight">
+            <div class="sidebar-toggle-handle" id="sbToggleRight" role="button" tabindex="0" aria-controls="sb-right" aria-expanded="true" title="Colapsar o expandir resultados">
                 <div class="handle-bar"></div>
                 <span class="handle-text">Estadísticas y Resultados</span>
             </div>
@@ -865,7 +865,9 @@
             if (window.innerWidth < 768) {
                 switchMobileTab('results');
                 var sbRight = document.getElementById('sb-right');
+                var sbToggleRight = document.getElementById('sbToggleRight');
                 if (sbRight) sbRight.classList.remove('sidebar-collapsed');
+                if (sbToggleRight) sbToggleRight.setAttribute('aria-expanded', 'true');
             }
         }
 
@@ -1458,8 +1460,19 @@
             var toggleEl = document.getElementById(item.toggleId);
             var sbEl = document.getElementById(item.sidebarId);
             if (toggleEl && sbEl) {
-                toggleEl.addEventListener('click', function() {
+                var toggleSidebar = function() {
                     sbEl.classList.toggle('sidebar-collapsed');
+                    toggleEl.setAttribute('aria-expanded', String(!sbEl.classList.contains('sidebar-collapsed')));
+                    setTimeout(function () {
+                        map.resize();
+                    }, 320);
+                };
+                toggleEl.addEventListener('click', toggleSidebar);
+                toggleEl.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleSidebar();
+                    }
                 });
             }
         });
@@ -1468,8 +1481,12 @@
         if (window.innerWidth < 768) {
             var sbLeft = document.getElementById('sb-left');
             var sbRight = document.getElementById('sb-right');
+            var sbToggleLeft = document.getElementById('sbToggleLeft');
+            var sbToggleRight = document.getElementById('sbToggleRight');
             if (sbLeft) sbLeft.classList.add('sidebar-collapsed');
             if (sbRight) sbRight.classList.add('sidebar-collapsed');
+            if (sbToggleLeft) sbToggleLeft.setAttribute('aria-expanded', 'false');
+            if (sbToggleRight) sbToggleRight.setAttribute('aria-expanded', 'false');
             switchMobileTab('filters');
         }
     </script>

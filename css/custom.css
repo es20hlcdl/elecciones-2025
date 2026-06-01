@@ -922,9 +922,9 @@ body.dark-theme {
   box-shadow: 0 4px 15px rgba(20, 128, 133, 0.6);
 }
 
-/* Sidebar Drag Handle (Bottom Sheet Toggle) */
+/* Sidebar Collapse Handle */
 .sidebar-toggle-handle {
-  display: none;
+  display: flex;
   width: 100%;
   padding: 10px 0;
   text-align: center;
@@ -934,6 +934,13 @@ body.dark-theme {
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  user-select: none;
+}
+.sidebar-toggle-handle:focus-visible {
+  outline: 2px solid #0f6d72;
+  outline-offset: 2px;
 }
 .handle-bar {
   width: 36px;
@@ -957,6 +964,30 @@ body.dark-theme {
 }
 .dark-theme .handle-text {
   color: #aaa;
+}
+
+.sidebar.sidebar-collapsed {
+  width: 48px;
+  padding: 8px;
+  overflow: visible;
+}
+.sidebar.sidebar-collapsed > :not(.sidebar-toggle-handle) {
+  display: none !important;
+}
+.sidebar.sidebar-collapsed .sidebar-toggle-handle {
+  height: 100%;
+  min-height: 180px;
+  justify-content: center;
+  border-bottom: none;
+}
+.sidebar.sidebar-collapsed .handle-bar {
+  width: 4px;
+  height: 36px;
+}
+.sidebar.sidebar-collapsed .handle-text {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
 }
 
 /* Precinct Details Panel (Desktop: Elegant Right Side Panel, Mobile: Slide-Up Bottom Sheet) */
@@ -1138,6 +1169,19 @@ body.dark-theme {
   .sidebar.sidebar-collapsed {
     transform: translateY(calc(100% - 40px)) !important;
   }
+  .sidebar.sidebar-collapsed .sidebar-toggle-handle {
+    height: auto;
+    min-height: 40px;
+    justify-content: flex-start;
+  }
+  .sidebar.sidebar-collapsed .handle-bar {
+    width: 36px;
+    height: 4px;
+  }
+  .sidebar.sidebar-collapsed .handle-text {
+    writing-mode: horizontal-tb;
+    transform: none;
+  }
   
   .sidebar-mobile-hidden {
     display: none !important;
@@ -1173,5 +1217,3 @@ body.dark-theme {
     margin-left: 10px !important;
   }
 }
-
-
