@@ -61,9 +61,53 @@
                 <button class="base-btn active" data-base="light" type="button">Claro</button>
                 <button class="base-btn" data-base="dark" type="button">Oscuro</button>
             </div>
+            <button class="source-methodology-btn" id="btnSourceMethodology" type="button">
+                <i class="fas fa-info-circle"></i> Fuente y metodología
+            </button>
             <a href="index.html" class="mode-switch-btn"><i class="fas fa-map"></i> Ver en 2D</a>
         </div>
     </header>
+
+    <div class="info-modal-backdrop hidden" id="sourceMethodologyModal" aria-hidden="true">
+        <div class="info-modal" role="dialog" aria-modal="true" aria-labelledby="sourceMethodologyTitle">
+            <div class="info-modal-header">
+                <h2 id="sourceMethodologyTitle">Fuente y metodología</h2>
+                <button class="info-modal-close" id="btnCloseSourceMethodology" type="button" aria-label="Cerrar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="info-modal-body">
+                <section>
+                    <h3>Fuente de datos</h3>
+                    <p>Los datos electorales utilizados en este visor provienen del cómputo oficial publicado por el Tribunal Supremo Electoral (TSE) y el Órgano Electoral Plurinacional (OEP) para las Elecciones Generales Bolivia 2025.</p>
+                    <p><strong>Fuentes consultadas:</strong></p>
+                    <ul>
+                        <li>Cómputo oficial OEP/TSE - Primera vuelta 2025.</li>
+                        <li>Cómputo oficial OEP/TSE - Segunda vuelta 2025.</li>
+                        <li>Padrón Electoral Biométrico del OEP.</li>
+                        <li>Listas oficiales de candidatas y candidatos habilitados.</li>
+                        <li>Sistema geoelectoral / datos de recintos electorales.</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>Modos de visualización</h3>
+                    <ul>
+                        <li><strong>Ganador:</strong> color por partido ganador y altura por votos válidos.</li>
+                        <li><strong>Participación:</strong> escala de color según porcentaje de participación.</li>
+                        <li><strong>Margen de victoria:</strong> intensidad del color según diferencia entre el primer y segundo lugar.</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>Primera y segunda vuelta</h3>
+                    <p>La primera vuelta utiliza los campos electorales correspondientes a la votación general. La segunda vuelta utiliza los campos específicos de balotaje para votos, participación, votos válidos y margen.</p>
+                </section>
+                <section>
+                    <h3>Advertencia</h3>
+                    <p class="info-modal-warning">Los datos deben verificarse con las fuentes oficiales del OEP/TSE antes de emplearse en análisis definitivo, publicación institucional o toma de decisiones.</p>
+                </section>
+            </div>
+        </div>
+    </div>
 
     <div class="layout">
         <!-- Panel Izquierdo: Filtros y Búsqueda -->
@@ -1474,6 +1518,46 @@
                         toggleSidebar();
                     }
                 });
+            }
+        });
+
+        var sourceMethodologyModal = document.getElementById('sourceMethodologyModal');
+        var btnSourceMethodology = document.getElementById('btnSourceMethodology');
+        var btnCloseSourceMethodology = document.getElementById('btnCloseSourceMethodology');
+
+        function openSourceMethodologyModal() {
+            if (!sourceMethodologyModal) return;
+            sourceMethodologyModal.classList.remove('hidden');
+            sourceMethodologyModal.setAttribute('aria-hidden', 'false');
+            if (btnCloseSourceMethodology) btnCloseSourceMethodology.focus();
+        }
+
+        function closeSourceMethodologyModal() {
+            if (!sourceMethodologyModal) return;
+            sourceMethodologyModal.classList.add('hidden');
+            sourceMethodologyModal.setAttribute('aria-hidden', 'true');
+            if (btnSourceMethodology) btnSourceMethodology.focus();
+        }
+
+        if (btnSourceMethodology) {
+            btnSourceMethodology.addEventListener('click', openSourceMethodologyModal);
+        }
+
+        if (btnCloseSourceMethodology) {
+            btnCloseSourceMethodology.addEventListener('click', closeSourceMethodologyModal);
+        }
+
+        if (sourceMethodologyModal) {
+            sourceMethodologyModal.addEventListener('click', function(e) {
+                if (e.target === sourceMethodologyModal) {
+                    closeSourceMethodologyModal();
+                }
+            });
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && sourceMethodologyModal && !sourceMethodologyModal.classList.contains('hidden')) {
+                closeSourceMethodologyModal();
             }
         });
 
