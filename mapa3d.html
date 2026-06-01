@@ -747,7 +747,6 @@
 
         // 4. Deck.gl Layer Builder
         function updateDeckLayers() {
-            var dataFeed;
             var elevationScaleVal = 0.75;
             var activeVisualizationMode = getActiveVisualizationMode();
 
@@ -762,15 +761,9 @@
                 return winner === 'Todos' || featureWinner === winner;
             });
 
-            if (activeVisualizationMode === 'winner') {
-                dataFeed = getStackedSegments(filteredByWinner);
-            } else {
-                dataFeed = filteredByWinner;
-            }
-
             var columnLayer = new deck.ColumnLayer({
                 id: 'column-layer',
-                data: dataFeed,
+                data: filteredByWinner,
                 diskResolution: 8, // Optimized from 12 to 8 (reduces geometry complexities by 33% with identical visual fidelity)
                 radius: 180, // radius of cylinders in meters
                 extruded: true,
@@ -780,9 +773,6 @@
                     manejarClicColumna(info);
                 },
                 getPosition: function (d) {
-                    if (activeVisualizationMode === 'winner') {
-                        return [d.pos[0], d.pos[1], d.pos[2] * elevationScaleVal];
-                    }
                     var lon = Number(d.properties.lon);
                     var lat = Number(d.properties.lat);
                     if (isNaN(lon) || isNaN(lat)) {
@@ -813,16 +803,11 @@
 
                     // 2. Base Color Extraction
                     var baseColor;
+                    var winner = getWinnerForFeature(feature);
+                    var colorByParty = ELECTION.PARTY_COLORS_RGB;
                     if (activeVisualizationMode === 'winner') {
-                        var winner = getWinnerForFeature(feature);
-                        var colorByParty = ELECTION.PARTY_COLORS_RGB;
-                        baseColor = currentRound === 'segunda'
-                            ? (colorByParty[String(winner)] || [154, 177, 181])
-                            : d.color;
+                        baseColor = colorByParty[String(winner)] || [154, 177, 181];
                     } else {
-                        var winner = getWinnerForFeature(feature);
-                        var colorByParty = ELECTION.PARTY_COLORS_RGB;
-
                         if (activeVisualizationMode === 'participation') {
                             var par = ElectionUtils.getParticipation(feature, currentRound);
 
@@ -840,21 +825,13 @@
                     var alpha = 220;
 
                     if (activeVisualizationMode === 'margin') {
-                        var winner = getWinnerForFeature(feature);
-                        var colorByParty = ELECTION.PARTY_COLORS_RGB;
                         baseColor = getMarginToneColor(feature, winner, colorByParty);
                         alpha = getMarginToneAlpha(feature);
                     }
 
-                    if (activeVisualizationMode === 'winner' && d.type === 'No Votaron') {
-                        alpha = 40;
-                    }
                     return [baseColor[0], baseColor[1], baseColor[2], alpha];
                 },
                 getElevation: function (d) {
-                    if (activeVisualizationMode === 'winner') {
-                        return d.height;
-                    }
                     return getValidVotes(d);
                 },
                 updateTriggers: {
