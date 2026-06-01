@@ -1125,6 +1125,16 @@
     <script>
         var ELECTION = window.ElectionConstants;
         var ElectionUtils = window.ElectionUtils;
+
+        // Detección preventiva de dispositivos móviles o baja potencia gráfica
+        var isLowPerformance = (function () {
+            if (window.innerWidth < 768) return true;
+            if (navigator.deviceMemory && navigator.deviceMemory <= 4) return true;
+            if (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) return true;
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true;
+            return false;
+        })();
+
         var currentRound = 'primera';
         var currentVisualizationMode = 'composition';
         var allFeatures = json_recintos_1.features.slice();
@@ -1203,7 +1213,8 @@
             zoom: isMobile ? initialZoom : 4.8, // starts wider on desktop to fly in
             pitch: isMobile ? initialPitch : 30, // starts flatter
             bearing: isMobile ? initialBearing : -20, // starts rotated opposite
-            antialias: true
+            antialias: !isLowPerformance,
+            fadeDuration: isLowPerformance ? 0 : 300
         });
 
         map.addControl(new maplibregl.NavigationControl({
@@ -1591,17 +1602,26 @@
             scheduleDeckLayerUpdate();
 
             if (!isMobile) {
-                // Smooth opening WebGL fly-in intro animation!
-                setTimeout(function () {
-                    map.flyTo({
+                if (isLowPerformance) {
+                    map.jumpTo({
                         center: [-63.5, -16.5],
                         zoom: initialZoom,
                         pitch: initialPitch,
-                        bearing: initialBearing,
-                        essential: true,
-                        duration: 2500
+                        bearing: initialBearing
                     });
-                }, 300);
+                } else {
+                    // Smooth opening WebGL fly-in intro animation!
+                    setTimeout(function () {
+                        map.flyTo({
+                            center: [-63.5, -16.5],
+                            zoom: initialZoom,
+                            pitch: initialPitch,
+                            bearing: initialBearing,
+                            essential: true,
+                            duration: 2500
+                        });
+                    }, 300);
+                }
             }
         });
 
@@ -1889,7 +1909,7 @@
             var columnLayer = new deck.ColumnLayer({
                 id: 'column-layer',
                 data: layerData,
-                diskResolution: 8, // Optimized from 12 to 8 (reduces geometry complexities by 33% with identical visual fidelity)
+                diskResolution: isLowPerformance ? 4 : 8,
                 radius: visualScale.radius,
                 extruded: true,
                 pickable: true,
@@ -2210,14 +2230,14 @@
                         if (lat && lon) {
                             selectedSearchFeature = f;
 
-                            // Tridimensional smooth fly-in
+                            // Tridimensional smooth fly-in (faster on low performance)
                             map.flyTo({
                                 center: [lon, lat],
                                 zoom: 14,
                                 pitch: 55,
                                 bearing: 25,
                                 essential: true,
-                                duration: 2000
+                                duration: isLowPerformance ? 800 : 2000
                             });
 
                             scheduleDeckLayerUpdate();
@@ -2238,7 +2258,7 @@
                                         if (sbToggleRight) sbToggleRight.setAttribute('aria-expanded', 'true');
                                     }
                                 }
-                            }, 1600);
+                            }, isLowPerformance ? 600 : 1600);
                         }
 
                         searchInput.value = '';
