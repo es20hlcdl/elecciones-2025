@@ -777,6 +777,27 @@ body {
   font-size: 10px;
   color: #666;
   font-weight: 500;
+  gap: 8px;
+}
+.legend-colorbar-labels span {
+  flex: 1;
+  line-height: 1.25;
+}
+.legend-colorbar-labels span:nth-child(2) {
+  text-align: center;
+}
+.legend-colorbar-labels span:last-child {
+  text-align: right;
+}
+.legend-colorbar-labels small {
+  color: #888;
+  font-size: 9px;
+}
+.legend-note {
+  margin: 2px 0 8px;
+  color: #555;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 /* Popup Candidates Section */
@@ -948,6 +969,10 @@ body.dark-theme {
 }
 .dark-theme .legend-colorbar-labels {
   color: #aaa;
+}
+.dark-theme .legend-colorbar-labels small,
+.dark-theme .legend-note {
+  color: #9a9a9a;
 }
 
 /* Dark mode Leaflet Popups */

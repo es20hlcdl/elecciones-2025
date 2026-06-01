@@ -1138,10 +1138,11 @@
 
                 legendBar.innerHTML = '<div class="legend-colorbar" style="background: linear-gradient(to right, #e1524e, #f3b347, #307655, #0f6d72);"></div>';
                 legendSummary.innerHTML =
+                    '<div class="legend-note"><strong>Color:</strong> porcentaje de participación. <strong>Altura:</strong> votos válidos.</div>' +
                     '<div class="legend-colorbar-labels">' +
-                    '<span>Baja (<65%)</span>' +
-                    '<span>Media (75%)</span>' +
-                    '<span>Alta (>90%)</span>' +
+                    '<span>Baja participación<br><small>&lt;65%</small></span>' +
+                    '<span>Participación media<br><small>75%</small></span>' +
+                    '<span>Alta participación<br><small>&gt;90%</small></span>' +
                     '</div>';
                 return;
             }
@@ -1153,10 +1154,11 @@
                 var startColor = isDark ? '#2e2e2e' : '#f0f0f0';
                 legendBar.innerHTML = '<div class="legend-colorbar" style="background: linear-gradient(to right, ' + startColor + ', #e1524e);"></div>';
                 legendSummary.innerHTML =
+                    '<div class="legend-note"><strong>Intensidad:</strong> diferencia entre primer y segundo lugar. <strong>Altura:</strong> votos válidos.</div>' +
                     '<div class="legend-colorbar-labels">' +
-                    '<span>Disputado (Empate)</span>' +
-                    '<span>Moderado (15%)</span>' +
-                    '<span>Contundente (>30%)</span>' +
+                    '<span>Disputado<br><small>empate</small></span>' +
+                    '<span>Moderado<br><small>15%</small></span>' +
+                    '<span>Contundente<br><small>&gt;30%</small></span>' +
                     '</div>';
                 return;
             }
@@ -1231,8 +1233,10 @@
                 return '<span style="display:inline-block; height:100%; background:' + r.color + '; width:' + r.pct.toFixed(3) + '%"></span>';
             }).join('');
 
-            legendSummary.innerHTML = rows.map(function (r) {
-                return '<div class="legend-row">' +
+            legendSummary.innerHTML =
+                '<div class="legend-note"><strong>Color:</strong> partido ganador del recinto. <strong>Altura:</strong> votos válidos.</div>' +
+                rows.map(function (r) {
+                    return '<div class="legend-row">' +
                     '<span class="swatch" style="background:' + r.color + '"></span>' +
                     '<span class="legend-party">' + r.key + '</span>' +
                     '<div class="legend-track-bg">' +
@@ -1240,7 +1244,7 @@
                     '</div>' +
                     '<span class="legend-stats">' + r.pct.toFixed(1) + '% &middot; ' + formatNum(r.votos) + '</span>' +
                     '</div>';
-            }).join('');
+                }).join('');
         }
 
         function updateTopStats(features) {
