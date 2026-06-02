@@ -2179,11 +2179,23 @@
             var circleRadius = [
                 'interpolate',
                 ['linear'],
-                ['get', habProp],
-                0, 4,
-                500, 6,
-                2000, 10,
-                6000, 16
+                ['zoom'],
+                5, [
+                    'interpolate',
+                    ['linear'],
+                    ['get', habProp],
+                    0, 3.2,
+                    2000, 6.0,
+                    6000, 10.0
+                ],
+                14, [
+                    'interpolate',
+                    ['linear'],
+                    ['get', habProp],
+                    0, 15.0,
+                    2000, 24.0,
+                    6000, 35.0
+                ]
             ];
 
             map.setPaintProperty(layerId, 'circle-color', circleColor);
@@ -3182,26 +3194,42 @@
                 });
             });
 
-            if (currentRound === 'segunda' && isNationalView()) {
-                if (totalsByKey.PDC !== undefined) {
-                    totalsByKey.PDC = OFFICIAL_SECOND_ROUND.PDC;
+            if (isNationalView()) {
+                if (currentRound === 'primera') {
+                    parties.forEach(function (p) {
+                        if (p.cls === 'blanco') {
+                            totalsByKey[p.key] = ELECTION.OFFICIAL_FIRST_ROUND.BLANCOS;
+                        } else if (p.cls === 'nulo') {
+                            totalsByKey[p.key] = ELECTION.OFFICIAL_FIRST_ROUND.NULOS;
+                        } else if (p.cls === 'abs') {
+                            totalsByKey[p.key] = ELECTION.OFFICIAL_FIRST_ROUND.HABILITADOS - ELECTION.OFFICIAL_FIRST_ROUND.EMITIDOS;
+                        } else {
+                            totalsByKey[p.key] = ELECTION.OFFICIAL_FIRST_ROUND[p.key] || 0;
+                        }
+                    });
+                    totalValidos = ELECTION.OFFICIAL_FIRST_ROUND.VALIDOS;
+                    totalHabilitados = ELECTION.OFFICIAL_FIRST_ROUND.HABILITADOS;
+                } else if (currentRound === 'segunda') {
+                    if (totalsByKey.PDC !== undefined) {
+                        totalsByKey.PDC = OFFICIAL_SECOND_ROUND.PDC;
+                    }
+                    if (totalsByKey.LIBRE !== undefined) {
+                        totalsByKey.LIBRE = OFFICIAL_SECOND_ROUND.LIBRE;
+                    }
+                    totalValidos = OFFICIAL_SECOND_ROUND.PDC + OFFICIAL_SECOND_ROUND.LIBRE;
+                    
+                    if (isCompositionLegend) {
+                        totalHabilitados = OFFICIAL_SECOND_ROUND.PDC + OFFICIAL_SECOND_ROUND.LIBRE +
+                            totalsByKey['Blancos'] + totalsByKey['Nulos'] + totalsByKey['No Votaron'];
+                    }
                 }
-                if (totalsByKey.LIBRE !== undefined) {
-                    totalsByKey.LIBRE = OFFICIAL_SECOND_ROUND.LIBRE;
-                }
-                totalValidos = OFFICIAL_SECOND_ROUND.PDC + OFFICIAL_SECOND_ROUND.LIBRE;
             }
 
-            if (currentRound === 'segunda' && isNationalView() && isCompositionLegend) {
-                totalHabilitados = OFFICIAL_SECOND_ROUND.PDC + OFFICIAL_SECOND_ROUND.LIBRE +
-                    totalsByKey['Blancos'] + totalsByKey['Nulos'] + totalsByKey['No Votaron'];
-            }
-
-            var rows = parties.map(function (p) {
-                var votos = totalsByKey[p.key] || 0;
+            var rows = parties.map(function (r) {
+                var votos = totalsByKey[r.key] || 0;
                 
                 var pct;
-                if (p.isParty) {
+                if (r.isParty) {
                     pct = totalValidos ? ((votos / totalValidos) * 100) : 0;
                 } else {
                     pct = totalHabilitados ? ((votos / totalHabilitados) * 100) : 0;
@@ -3215,12 +3243,12 @@
                 }
 
                 return {
-                    key: p.key,
-                    color: p.color,
+                    key: r.key,
+                    color: r.color,
                     votos: votos,
                     pct: pct,
                     widthPct: widthPct,
-                    isParty: p.isParty
+                    isParty: r.isParty
                 };
             });
 
@@ -3239,7 +3267,7 @@
                     ? '<div class="legend-note">Resultados de partidos sobre votos válidos. Blancos, nulos y abstención sobre habilitados.</div>'
                     : '<div class="legend-note">Resultado sobre votos válidos. <strong>Color:</strong> partido ganador. <strong>Altura:</strong> habilitados.</div>') +
                 rows.map(function (r) {
-                    var pctText = (currentRound === 'segunda' && isNationalView() && r.isParty)
+                    var pctText = (isNationalView() && r.isParty)
                         ? r.pct.toFixed(2)
                         : r.pct.toFixed(1);
                     return '<div class="legend-row">' +
@@ -3258,19 +3286,25 @@
             var emi = 0;
             var val = 0;
 
-            features.forEach(function (f) {
-                if (currentRound === 'segunda') {
-                    hab += Number(f.properties.hab_sv) || 0;
-                    emi += Number(f.properties.emi_sv) || 0;
-                } else {
-                    hab += Number(f.properties.hab) || 0;
-                    emi += Number(f.properties.emi) || 0;
-                }
-                val += getValidVotes(f);
-            });
+            if (isNationalView() && currentRound === 'primera') {
+                hab = ELECTION.OFFICIAL_FIRST_ROUND.HABILITADOS;
+                emi = ELECTION.OFFICIAL_FIRST_ROUND.EMITIDOS;
+                val = ELECTION.OFFICIAL_FIRST_ROUND.VALIDOS;
+            } else {
+                features.forEach(function (f) {
+                    if (currentRound === 'segunda') {
+                        hab += Number(f.properties.hab_sv) || 0;
+                        emi += Number(f.properties.emi_sv) || 0;
+                    } else {
+                        hab += Number(f.properties.hab) || 0;
+                        emi += Number(f.properties.emi) || 0;
+                    }
+                    val += getValidVotes(f);
+                });
 
-            if (currentRound === 'segunda' && isNationalView()) {
-                val = OFFICIAL_SECOND_ROUND.PDC + OFFICIAL_SECOND_ROUND.LIBRE;
+                if (currentRound === 'segunda' && isNationalView()) {
+                    val = OFFICIAL_SECOND_ROUND.PDC + OFFICIAL_SECOND_ROUND.LIBRE;
+                }
             }
 
             var part = hab ? ((emi / hab) * 100) : 0;
