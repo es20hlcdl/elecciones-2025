@@ -3606,6 +3606,20 @@
             var btnSourceMethodology = document.getElementById('btnSourceMethodology');
             var btnCloseSourceMethodology = document.getElementById('btnCloseSourceMethodology');
 
+            function openSourceMethodologyModal() {
+                if (sourceMethodologyModal) {
+                    sourceMethodologyModal.classList.remove('hidden');
+                    sourceMethodologyModal.setAttribute('aria-hidden', 'false');
+                }
+            }
+
+            function closeSourceMethodologyModal() {
+                if (sourceMethodologyModal) {
+                    sourceMethodologyModal.classList.add('hidden');
+                    sourceMethodologyModal.setAttribute('aria-hidden', 'true');
+                }
+            }
+
             if (btnSourceMethodology) {
                 btnSourceMethodology.addEventListener('click', openSourceMethodologyModal);
             }
