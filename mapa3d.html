@@ -1011,11 +1011,7 @@
         /* Desktop specific card layout */
         @media (min-width: 769px) {
             .precinct-details-panel {
-                position: fixed !important;
-                top: calc(var(--header-height) + 36px) !important;
-                right: calc(var(--sidebar-width) + 40px) !important; /* Floats contextual next to right sidebar */
-                width: 320px !important;
-                max-height: 78vh !important;
+                display: none !important;
             }
         }
 
@@ -1157,6 +1153,10 @@
                 <section>
                     <h3>Primera y segunda vuelta</h3>
                     <p>La primera vuelta utiliza los campos electorales correspondientes a la votación general. La segunda vuelta utiliza los campos específicos de balotaje para votos, participación, votos válidos y margen.</p>
+                </section>
+                <section>
+                    <h3>Cálculo de porcentajes</h3>
+                    <p>Los porcentajes de votación de los partidos políticos en la leyenda y paneles se calculan en función de los <strong>votos válidos</strong> (excluyendo votos en blanco, nulos o abstenciones), de acuerdo con la metodología oficial del TSE y del OEP.</p>
                 </section>
                 <section>
                     <h3>Advertencia</h3>
@@ -3108,42 +3108,66 @@
             legendTitle.textContent = getVisualizationLegendTitle(activeVisualizationMode);
             var isCompositionLegend = activeVisualizationMode === 'composition';
 
-            var parties = currentRound === 'segunda'
-                ? ELECTION.SECOND_ROUND_PARTIES.map(function (party) {
-                    return { key: party, cls: party.toLowerCase(), color: ELECTION.PARTY_COLORS_HEX[party] };
-                }).concat([
-                    { key: 'Blancos', cls: 'blanco', color: ELECTION.PARTY_COLORS_HEX.BLANCO },
-                    { key: 'Nulos', cls: 'nulo', color: ELECTION.PARTY_COLORS_HEX.NULO },
-                    { key: 'No Votaron', cls: 'abs', color: ELECTION.PARTY_COLORS_HEX.ABS }
-                ])
-                : ELECTION.FIRST_ROUND_PARTIES.map(function (party) {
-                    var clsByParty = {
-                        PDC: 'pdc',
-                        LIBRE: 'libre',
-                        UNIDAD: 'unidad',
-                        AP: 'ap',
-                        'APB-SUMATE': 'apbs',
-                        'MAS-IPSP': 'mas',
-                        FP: 'fp',
-                        'LYP-ADN': 'lyp'
-                    };
-                    return { key: party, cls: clsByParty[party], color: ELECTION.PARTY_COLORS_HEX[party] };
-                }).concat([
-                    { key: 'Blancos', cls: 'blanco', color: ELECTION.PARTY_COLORS_HEX.BLANCO },
-                    { key: 'Nulos', cls: 'nulo', color: ELECTION.PARTY_COLORS_HEX.NULO },
-                    { key: 'No Votaron', cls: 'abs', color: ELECTION.PARTY_COLORS_HEX.ABS }
-                ]);
+            var parties;
+            if (isCompositionLegend) {
+                parties = currentRound === 'segunda'
+                    ? ELECTION.SECOND_ROUND_PARTIES.map(function (party) {
+                        return { key: party, cls: party.toLowerCase(), color: ELECTION.PARTY_COLORS_HEX[party], isParty: true };
+                    }).concat([
+                        { key: 'Blancos', cls: 'blanco', color: ELECTION.PARTY_COLORS_HEX.BLANCO, isParty: false },
+                        { key: 'Nulos', cls: 'nulo', color: ELECTION.PARTY_COLORS_HEX.NULO, isParty: false },
+                        { key: 'No Votaron', cls: 'abs', color: ELECTION.PARTY_COLORS_HEX.ABS, isParty: false }
+                    ])
+                    : ELECTION.FIRST_ROUND_PARTIES.map(function (party) {
+                        var clsByParty = {
+                            PDC: 'pdc',
+                            LIBRE: 'libre',
+                            UNIDAD: 'unidad',
+                            AP: 'ap',
+                            'APB-SUMATE': 'apbs',
+                            'MAS-IPSP': 'mas',
+                            FP: 'fp',
+                            'LYP-ADN': 'lyp'
+                        };
+                        return { key: party, cls: clsByParty[party], color: ELECTION.PARTY_COLORS_HEX[party], isParty: true };
+                    }).concat([
+                        { key: 'Blancos', cls: 'blanco', color: ELECTION.PARTY_COLORS_HEX.BLANCO, isParty: false },
+                        { key: 'Nulos', cls: 'nulo', color: ELECTION.PARTY_COLORS_HEX.NULO, isParty: false },
+                        { key: 'No Votaron', cls: 'abs', color: ELECTION.PARTY_COLORS_HEX.ABS, isParty: false }
+                    ]);
+            } else {
+                parties = currentRound === 'segunda'
+                    ? ELECTION.SECOND_ROUND_PARTIES.map(function (party) {
+                        return { key: party, cls: party.toLowerCase(), color: ELECTION.PARTY_COLORS_HEX[party], isParty: true };
+                    })
+                    : ELECTION.FIRST_ROUND_PARTIES.map(function (party) {
+                        var clsByParty = {
+                            PDC: 'pdc',
+                            LIBRE: 'libre',
+                            UNIDAD: 'unidad',
+                            AP: 'ap',
+                            'APB-SUMATE': 'apbs',
+                            'MAS-IPSP': 'mas',
+                            FP: 'fp',
+                            'LYP-ADN': 'lyp'
+                        };
+                        return { key: party, cls: clsByParty[party], color: ELECTION.PARTY_COLORS_HEX[party], isParty: true };
+                    });
+            }
 
-            var totalHabilitados = 0;
             var totalsByKey = {};
             parties.forEach(function (p) {
                 totalsByKey[p.key] = 0;
             });
 
+            var totalValidos = 0;
+            var totalHabilitados = 0;
+
             features.forEach(function (f) {
                 var hab = currentRound === 'segunda' ? (Number(f.properties.hab_sv) || 0) : (Number(f.properties.hab) || 0);
                 var emi = currentRound === 'segunda' ? (Number(f.properties.emi_sv) || 0) : (Number(f.properties.emi) || 0);
                 totalHabilitados += hab;
+                totalValidos += getValidVotes(f);
 
                 parties.forEach(function (p) {
                     if (p.cls === 'blanco') {
@@ -3158,34 +3182,73 @@
                 });
             });
 
+            if (currentRound === 'segunda' && isNationalView()) {
+                if (totalsByKey.PDC !== undefined) {
+                    totalsByKey.PDC = OFFICIAL_SECOND_ROUND.PDC;
+                }
+                if (totalsByKey.LIBRE !== undefined) {
+                    totalsByKey.LIBRE = OFFICIAL_SECOND_ROUND.LIBRE;
+                }
+                totalValidos = OFFICIAL_SECOND_ROUND.PDC + OFFICIAL_SECOND_ROUND.LIBRE;
+            }
+
+            if (currentRound === 'segunda' && isNationalView() && isCompositionLegend) {
+                totalHabilitados = OFFICIAL_SECOND_ROUND.PDC + OFFICIAL_SECOND_ROUND.LIBRE +
+                    totalsByKey['Blancos'] + totalsByKey['Nulos'] + totalsByKey['No Votaron'];
+            }
+
             var rows = parties.map(function (p) {
                 var votos = totalsByKey[p.key] || 0;
+                
+                var pct;
+                if (p.isParty) {
+                    pct = totalValidos ? ((votos / totalValidos) * 100) : 0;
+                } else {
+                    pct = totalHabilitados ? ((votos / totalHabilitados) * 100) : 0;
+                }
 
-                var pct = totalHabilitados ? ((votos / totalHabilitados) * 100) : 0;
+                var widthPct = 0;
+                if (isCompositionLegend) {
+                    widthPct = totalHabilitados ? ((votos / totalHabilitados) * 100) : 0;
+                } else {
+                    widthPct = totalValidos ? ((votos / totalValidos) * 100) : 0;
+                }
+
                 return {
                     key: p.key,
                     color: p.color,
                     votos: votos,
-                    pct: pct
+                    pct: pct,
+                    widthPct: widthPct,
+                    isParty: p.isParty
                 };
             });
 
+            if (!isCompositionLegend) {
+                rows.sort(function (a, b) {
+                    return b.votos - a.votos;
+                });
+            }
+
             legendBar.innerHTML = rows.map(function (r) {
-                return '<span style="display:inline-block; height:100%; background:' + r.color + '; width:' + r.pct.toFixed(3) + '%"></span>';
+                return '<span style="display:inline-block; height:100%; background:' + r.color + '; width:' + r.widthPct.toFixed(3) + '%"></span>';
             }).join('');
 
             legendSummary.innerHTML =
                 (isCompositionLegend
-                    ? '<div class="legend-note">Composición electoral sobre habilitados (votos por partido, blancos, nulos y no votaron).</div>'
-                    : '<div class="legend-note"><strong>Color:</strong> partido ganador del recinto. <strong>Altura:</strong> habilitados.</div>') +
+                    ? '<div class="legend-note">Resultados de partidos sobre votos válidos. Blancos, nulos y abstención sobre habilitados.</div>'
+                    : '<div class="legend-note">Resultado sobre votos válidos. <strong>Color:</strong> partido ganador. <strong>Altura:</strong> habilitados.</div>') +
                 rows.map(function (r) {
+                    var pctText = (currentRound === 'segunda' && isNationalView() && r.isParty)
+                        ? r.pct.toFixed(2)
+                        : r.pct.toFixed(1);
                     return '<div class="legend-row">' +
                     '<span class="swatch" style="background:' + r.color + '"></span>' +
                     '<span class="legend-party">' + r.key + '</span>' +
                     '<div class="legend-track-bg">' +
                         '<div style="height: 100%; background:' + r.color + '; width:' + r.pct.toFixed(1) + '%; border-radius: 2px;"></div>' +
                     '</div>' +
-                    '<span class="legend-stats">' + r.pct.toFixed(1) + '% &middot; ' + formatNum(r.votos) + '</span>' +
+                    '<span class="legend-stats">' + pctText + '% &middot; ' + formatNum(r.votos) + '</span>' +
                     '</div>';
                 }).join('');
         }
@@ -3381,15 +3444,7 @@
             }
         }
 
-        // Connect Theme Toggle click listener
-        var themeToggle = document.getElementById('btnThemeToggle');
-        if (themeToggle) {
-            themeToggle.addEventListener('click', function () {
-                var currentTheme = localStorage.getItem('electoral-map-theme') || 'light';
-                var nextTheme = (currentTheme === 'dark') ? 'light' : 'dark';
-                applyElectoralTheme(nextTheme);
-            });
-        }
+
 
         // Connect Color Mode buttons
         document.querySelectorAll('.color-mode-btn').forEach(function (btn) {
