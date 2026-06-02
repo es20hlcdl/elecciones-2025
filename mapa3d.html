@@ -1387,9 +1387,9 @@
                 container: 'map',
                 style: initialStyle,
                 center: [-63.5, -16.5], // centered on Bolivia
-                zoom: isMobile ? initialZoom : 4.8, // starts wider on desktop to fly in
-                pitch: isMobile ? initialPitch : 30, // starts flatter
-                bearing: isMobile ? initialBearing : -20, // starts rotated opposite
+                zoom: initialZoom,
+                pitch: initialPitch,
+                bearing: initialBearing,
                 fadeDuration: isLowPerformance ? 0 : 300
             });
         } catch (mapErr) {
